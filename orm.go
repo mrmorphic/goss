@@ -13,8 +13,8 @@ import (
 /**
  * Execute a SQL query, returning the resulting rows. Creates a database connection on demand.
  */
-func (ctx *RequestContext) Query(sql string) (q *sql.Rows, e error) {
-	fmt.Println("sql: " + sql)
+func (ctx *DBContext) Query(sql string) (q *sql.Rows, e error) {
+//	fmt.Println("sql: " + sql)
 	if ctx.db == nil {
 		// get databae connection on demand
 		ctx.db, e = dbFactory()
@@ -22,10 +22,12 @@ func (ctx *RequestContext) Query(sql string) (q *sql.Rows, e error) {
 			return
 		}
 	}
+
 	st, e := ctx.db.Prepare(sql)
 	if e != nil {
 		return
 	}
+
 	q, e = st.Query();
 	return
 }
@@ -79,7 +81,7 @@ func (obj *DataObject) Debug() string {
 	return s
 }
 
-func (ctx *RequestContext) DataObjectFromRow(r *sql.Rows) (obj *DataObject, e error) {
+func (ctx *DBContext) DataObjectFromRow(r *sql.Rows) (obj *DataObject, e error) {
 	// Get columns
 	cols, e := r.Columns()
 	colCount := len(cols)
@@ -183,7 +185,12 @@ func (q *DataQuery) Filter(field string, filterValue interface{}) (*DataQuery) {
 }
 
 // Generate the SQL for this DataQuery
-func (q *DataQuery) sql() (s string, e error) {
+func (q *DataQuery) sql(ctx *DBContext) (s string, e error) {
+	if q.baseClass == "" {
+		return "", errors.New("No base class")
+	}
+
+	// columns
 	sql := "select "
 	if len(q.columns) == 0 {
 		sql += "* "
@@ -191,20 +198,15 @@ func (q *DataQuery) sql() (s string, e error) {
 		sql += "\"" + strings.Join(q.columns, "\",\"") + "\" "
 	}
 
-	// from
-	if q.baseClass == "" {
-		return "", errors.New("No base class")
-	}
+	// Tables. This is basically a join of all tables from base DataObject thru to the table for the class, and all
+	// tables for subclasses. This will have been precalculated, so it's trivial here.
+	baseClass := ctx.Metadata.GetClass(q.baseClass)
+	sql += "from " + baseClass.defaultFrom
 
-	table := q.baseClass
-	if table == "SiteTree" || table == "Page" {
-		table += "_Live"
-	}
-
-	sql += " from " + table
-
+	// where clause
+	sql += " where " + baseClass.defaultWhere
 	if len(q.where) > 0 {
-		sql += " where " + strings.Join(q.where, " and ")
+		sql += " and " + strings.Join(q.where, " and ")
 	}
 
 	if q.orderBy != "" {
@@ -214,22 +216,24 @@ func (q *DataQuery) sql() (s string, e error) {
 	if q.start >= 0 {
 		sql += " limit " + strconv.Itoa(q.start) + ", " + strconv.Itoa(q.limit)
 	}
-
+fmt.Printf("query is %s\n", sql)
 	return sql, nil
 }
 
-func (q *DataQuery) Exec(ctx *RequestContext) (set *DataList, e error) {
-	sql, e := q.sql()
+func (q *DataQuery) Exec(ctx *DBContext) (set *DataList, e error) {
+	sql, e := q.sql(ctx)
 	if e != nil {
 		return nil, e
 	}
 
 	res, e := ctx.Query(sql)
 	if e != nil {
+		fmt.Printf("ERROR EXECUTING SQL: %s\n", e)
 		return nil, e
 	}
 
 	set = NewDataList()
+
 	for res.Next() {
 		obj, e := ctx.DataObjectFromRow(res)
 		if e != nil {

@@ -11,7 +11,7 @@ import (
 
 type DBConnFactory func()(*sql.DB, error)
 type DBCloseConn func(*sql.DB)
-type RenderCallback func(http.ResponseWriter, *http.Request, *RequestContext, *DataObject)
+type RenderCallback func(http.ResponseWriter, *http.Request, *DBContext, *DataObject)
 
 type NavigationProvider interface {
 	Menu(level int) (DataList)
@@ -19,25 +19,45 @@ type NavigationProvider interface {
 
 var dbFactory DBConnFactory
 var dbClose DBCloseConn
+var metadataSource string
 var renderFunction RenderCallback
 
-type RequestContext struct {
+var dbMetadata *DBMetadata
+ 
+type DBContext struct {
 	db *sql.DB
-	metadata *DBMetadata
+	Metadata *DBMetadata
 }
+
 
 // Given a request, follow the segments through sitetree to find the page that is being requested. Doesn't
 // understand actions, so just finds the page. Returns ID of SiteTree_Live record or 0 if it can't find a
 // matching page.
-// @todo Understand controller actions, or break on the furthest it gets up the tree
+// @todo Understand BaseController actions, or break on the furthest it gets up the tree
 // @todo cache site tree
-func (ctx *RequestContext) findPageToRender(r *http.Request) (int, error) {
+func (ctx *DBContext) findPageToRender(r *http.Request) (int, error) {
 	s := strings.Trim(r.URL.Path, "/")
 	path := strings.Split(s, "/")
 
+	if len(path) == 0 || path[0] == "" {
+		// find a home page ID
+		r, e := ctx.Query("select \"ID\" from \"SiteTree_Live\" where \"URLSegment\"='home' and \"ParentID\"=0")
+		if e != nil {
+			return 0, e
+		}
+		if !r.Next() {
+			return 0, nil
+		}
+
+		var ID int
+		e = r.Scan(&ID)
+
+		return ID, e
+	}
+
 	currParentID := 0
 	for _,p := range path {
-		r, e := ctx.Query("select ID,ParentID from SiteTree_Live where URLSegment='" + p + "' and ParentID=" + strconv.Itoa(currParentID))
+		r, e := ctx.Query("select \"ID\",\"ParentID\" from \"SiteTree_Live\" where \"URLSegment\"='" + p + "' and \"ParentID\"=" + strconv.Itoa(currParentID))
 		if e != nil {
 			return 0, e
 		}
@@ -55,69 +75,19 @@ func (ctx *RequestContext) findPageToRender(r *http.Request) (int, error) {
 }
 
 // Find the 'PageNotFound' error page and return it's ID
-func (ctx *RequestContext) findNotFoundPage(r *http.Request) (int, error) {
+func (ctx *DBContext) findNotFoundPage(r *http.Request) (int, error) {
 	return 0, errors.New("not found")
 }
 
-func (ctx *RequestContext) Menu(level int) (set *DataList, e error) {
-	q := NewQuery().BaseClass("SiteTree").Where("ParentID=0").Where("ShowInMenus=1").OrderBy("\"Sort\" ASC")
-	set, e = q.Exec(ctx)
-	return
-}
-
-func (ctx *RequestContext) SiteConfig() (obj *DataObject, e error) {
-	q := NewQuery().BaseClass("SiteConfig").Limit(0,1)
-	res, e := q.Exec(ctx)
-	if e != nil {
-		return nil, e
-	}
-
-	if len(res.Items) < 1 {
-		return nil, errors.New("There is no SiteConfig record")
-	}
-
-	return res.Items[0], nil
-}
-
-/**
- * Given a data object, return a path to it. For a site object, this is the URLSegments of the
- * descendents and the object. For other (non-hierarchical objects) this is an empty string, because
- * there is no structure. Note this is not a complete Link, because the link is a function
- * of the presentation layer, not the model. But this is helpful especially for SiteTree objects.
- */
-func (ctx *RequestContext) Path(obj *DataObject, field string) (string, error) {
-	hier, e := ctx.metadata.IsHierarchical(obj.AsString("ClassName"))
-	if e != nil {
-		return "", e
-	}
-	if !hier {
-		return "", nil
-	}
-
-//	i,_ := obj.AsInt("ParentID")
-//	fmt.Printf("ParentID for object is %d\n", i)
-//fmt.Printf("Object is %s\n", obj)
-	res := obj.AsString(field)
-	for parentID, e := obj.AsInt("ParentID"); e != nil && parentID > 0; {
-		// @todo not BaseClass("SiteTree"), derive the base class using metadata.
-		q := NewQuery().BaseClass("SiteTree").Where("ID=" + strconv.Itoa(parentID))
-		ds, e := q.Exec(ctx)
-		if e != nil {
-			return "", e
-		}
-		obj = ds.First()
-		res = obj.AsString(field) + "/" + res
-	}
-	return res, nil
-}
 
 /**
  * Set the DB factory and DB close connection methods. goss does not know how to connect to the DB.
- * This may change, as do need in the orm to know what kind of DB wr're dealing with for SQL generation.
+ * This may change, as do need in the orm to know what kind of DB we're dealing with for SQL generation.
  */
-func SetConnection(factory DBConnFactory, closeConn DBCloseConn) {
+func SetConnection(factory DBConnFactory, closeConn DBCloseConn, metadataFile string) {
 	dbFactory = factory
 	dbClose = closeConn
+	metadataSource = metadataFile
 }
 
 /**
@@ -156,8 +126,19 @@ func SiteTreeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer dbClose(db)
 
-	metadata := new(DBMetadata)
-	ctx := &RequestContext{db, metadata}
+	if dbMetadata == nil {
+		// Generate the metadata object on demand
+		dbMetadata = new(DBMetadata)
+	}
+	e = dbMetadata.RefreshOnDemand(metadataSource)
+	if e != nil {
+		ErrorHandler(w, r, e)
+		return
+	}
+		
+	// @todo can metadata be a shared global instead of allocating it each time? What about updates to the metadata?
+	// @todo use metadataSource to initialise DBMetadata, if the file hasn't changed.
+	ctx := &DBContext{db, dbMetadata}
 
 	pageID, e := ctx.findPageToRender(r)
 	if e != nil {
@@ -183,7 +164,7 @@ func SiteTreeHandler(w http.ResponseWriter, r *http.Request) {
 
 //	fmt.Printf("SiteTreeHandler has found a page: %d\n", pageID)
 
-	q := NewQuery().BaseClass("SiteTree").Where("\"ID\"=" + strconv.Itoa(pageID))
+	q := NewQuery().BaseClass("SiteTree").Where("\"SiteTree_Live\".\"ID\"=" + strconv.Itoa(pageID))
 	res, _ := q.Exec(ctx)
 
 	if e != nil {
