@@ -1,5 +1,7 @@
 # goss
 
+## Overview
+
 Goss is an experimental library to interface Go applications to SilverStripe databases. Key features are:
 
  *	An ORM that reads from SilverStripe databases directly (SS 3+)
@@ -14,7 +16,13 @@ Typical use cases envisioned for goss are:
 
 The motivation for the library is to provide a way to build components within a SilverStripe installation where
 high performance is critical. Rough tests indicate approximately 2 orders of magnitude speed improvement for some
-simple functions implemented in go vs in PHP/SilverStripe on apache.
+simple functions implemented in go vs in PHP/SilverStripe on apache. It is not designed to replace the SilverStripe
+framework, and is in fact dependent on the framework.
+
+## Author
+
+Mark Stephens (mr.morphic@gmail.com)
+
 
 ## Status
 
