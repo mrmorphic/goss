@@ -128,7 +128,7 @@ This is a simple annotated website using goss:
 	}
 
 	func (c *GenericController) LinkByType(class string) string {
-		ds, e := goss.NewQuery().BaseClass("SiteTree").Where("\"ClassName\"='" + class + "'").Exec(c.DB)
+		ds, e := goss.NewQuery("SiteTree").Where("\"ClassName\"='" + class + "'").Exec(c.DB)
 		if e != nil {
 			fmt.Printf("error: %s\n", e)
 		}

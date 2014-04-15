@@ -144,7 +144,7 @@ func SiteTreeHandler(w http.ResponseWriter, r *http.Request, renderFn RenderFunc
 
 	//	fmt.Printf("SiteTreeHandler has found a page: %d\n", pageID)
 
-	q := NewQuery().BaseClass("SiteTree").Where("\"SiteTree_Live\".\"ID\"=" + strconv.Itoa(pageID))
+	q := NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ID\"=" + strconv.Itoa(pageID))
 	res, _ := q.Exec(ctx)
 
 	if e != nil {

@@ -173,11 +173,6 @@ func (q *DataQuery) Limit(start, number int) *DataQuery {
 	return q
 }
 
-func (q *DataQuery) BaseClass(className string) *DataQuery {
-	q.baseClass = className
-	return q
-}
-
 func (q *DataQuery) Filter(field string, filterValue interface{}) *DataQuery {
 	return q
 }
@@ -243,8 +238,9 @@ func (q *DataQuery) Exec(ctx *DBContext) (set *DataList, e error) {
 	return set, nil
 }
 
-func NewQuery() *DataQuery {
+func NewQuery(className string) *DataQuery {
 	q := new(DataQuery)
 	q.start = -1
+	q.baseClass = className
 	return q
 }

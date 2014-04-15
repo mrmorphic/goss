@@ -28,14 +28,14 @@ func (c *BaseController) Init(w http.ResponseWriter, r *http.Request, ctx *DBCon
 }
 
 func (ctl *BaseController) Menu(level int) (set *DataList, e error) {
-	q := NewQuery().BaseClass("SiteTree").Where("\"SiteTree_Live\".\"ParentID\"=0").Where("\"ShowInMenus\"=1").OrderBy("\"Sort\" ASC")
+	q := NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ParentID\"=0").Where("\"ShowInMenus\"=1").OrderBy("\"Sort\" ASC")
 	set, e = q.Exec(ctl.DB)
 	return
 }
 
 // Return the SiteConfig DataObject.
 func (ctl *BaseController) SiteConfig() (obj *DataObject, e error) {
-	q := NewQuery().BaseClass("SiteConfig").Limit(0, 1)
+	q := NewQuery("SiteConfig").Limit(0, 1)
 	res, e := q.Exec(ctl.DB)
 	if e != nil {
 		return nil, e
@@ -78,8 +78,8 @@ func (ctl *BaseController) Path(obj *DataObject, field string) (string, error) {
 	//fmt.Printf("Object is %s\n", obj)
 	res := obj.AsString(field)
 	for parentID, e := obj.AsInt("ParentID"); e != nil && parentID > 0; {
-		// @todo not BaseClass("SiteTree"), derive the base class using metadata.
-		q := NewQuery().BaseClass("SiteTree").Where("\"SiteTree_Live\".\"ID\"=" + strconv.Itoa(parentID))
+		// @todo don't hardcode "SiteTree", derive the base class using metadata.
+		q := NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ID\"=" + strconv.Itoa(parentID))
 		ds, e := q.Exec(ctl.DB)
 		if e != nil {
 			return "", e
