@@ -1,34 +1,32 @@
 package goss
 
 import (
-	"net/http"
 	"database/sql"
-	"fmt"
 	"errors"
-	"strings"
+	"fmt"
+	"net/http"
 	"strconv"
+	"strings"
 )
 
-type DBConnFactory func()(*sql.DB, error)
+type DBConnFactory func() (*sql.DB, error)
 type DBCloseConn func(*sql.DB)
-type RenderCallback func(http.ResponseWriter, *http.Request, *DBContext, *DataObject)
+type RenderFunc func(http.ResponseWriter, *http.Request, *DBContext, *DataObject)
 
 type NavigationProvider interface {
-	Menu(level int) (DataList)
+	Menu(level int) DataList
 }
 
 var dbFactory DBConnFactory
 var dbClose DBCloseConn
 var metadataSource string
-var renderFunction RenderCallback
 
 var dbMetadata *DBMetadata
- 
+
 type DBContext struct {
-	db *sql.DB
+	db       *sql.DB
 	Metadata *DBMetadata
 }
-
 
 // Given a request, follow the segments through sitetree to find the page that is being requested. Doesn't
 // understand actions, so just finds the page. Returns ID of SiteTree_Live record or 0 if it can't find a
@@ -56,7 +54,7 @@ func (ctx *DBContext) findPageToRender(r *http.Request) (int, error) {
 	}
 
 	currParentID := 0
-	for _,p := range path {
+	for _, p := range path {
 		r, e := ctx.Query("select \"ID\",\"ParentID\" from \"SiteTree_Live\" where \"URLSegment\"='" + p + "' and \"ParentID\"=" + strconv.Itoa(currParentID))
 		if e != nil {
 			return 0, e
@@ -79,31 +77,13 @@ func (ctx *DBContext) findNotFoundPage(r *http.Request) (int, error) {
 	return 0, errors.New("not found")
 }
 
-
-/**
- * Set the DB factory and DB close connection methods. goss does not know how to connect to the DB.
- * This may change, as do need in the orm to know what kind of DB we're dealing with for SQL generation.
- */
+// SetConnection is used by the application to provide the DB factory and DB close connection methods.
+// goss does not know how to connect to the DB by itself.
+// This may change, as do need in the orm to know what kind of DB we're dealing with for SQL generation.
 func SetConnection(factory DBConnFactory, closeConn DBCloseConn, metadataFile string) {
 	dbFactory = factory
 	dbClose = closeConn
 	metadataSource = metadataFile
-}
-
-/**
- * Set the render callback method. This is used when we've identified a site tree record to render.
- */
-func SetRenderCallback(renderFn RenderCallback) {
-	renderFunction = renderFn
-}
-
-/**
- * Set the metadata that was used to generate the database we're connecting with. We need this
- * because we don't have direct access to this from the PHP app, and we need it to understand
- * class hierarchy, class properties and their types.
- */
-func SetMetadata() {
-
 }
 
 // Handle a request for a general page out of site tree:
@@ -118,7 +98,7 @@ func SetMetadata() {
 // @todo locate template from classname
 // @todo read sitetree for identified record. Needs to read all properties of the site tree. How?
 // @todo read full object from site tree, which requires meta-data from SS application.
-func SiteTreeHandler(w http.ResponseWriter, r *http.Request) {
+func SiteTreeHandler(w http.ResponseWriter, r *http.Request, renderFn RenderFunc) {
 	db, e := dbFactory()
 	if e != nil {
 		ErrorHandler(w, r, e)
@@ -135,7 +115,7 @@ func SiteTreeHandler(w http.ResponseWriter, r *http.Request) {
 		ErrorHandler(w, r, e)
 		return
 	}
-		
+
 	// @todo can metadata be a shared global instead of allocating it each time? What about updates to the metadata?
 	// @todo use metadataSource to initialise DBMetadata, if the file hasn't changed.
 	ctx := &DBContext{db, dbMetadata}
@@ -162,25 +142,25 @@ func SiteTreeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-//	fmt.Printf("SiteTreeHandler has found a page: %d\n", pageID)
+	//	fmt.Printf("SiteTreeHandler has found a page: %d\n", pageID)
 
 	q := NewQuery().BaseClass("SiteTree").Where("\"SiteTree_Live\".\"ID\"=" + strconv.Itoa(pageID))
 	res, _ := q.Exec(ctx)
 
 	if e != nil {
 		ErrorHandler(w, r, e)
-		return		
+		return
 	}
 
 	if len(res.Items) == 0 {
-		e  = errors.New("Could not locate object with ID " + strconv.Itoa(pageID))
+		e = errors.New("Could not locate object with ID " + strconv.Itoa(pageID))
 		ErrorHandler(w, r, e)
-		return		
+		return
 	}
 
 	page := res.Items[0]
 
-	renderFunction(w, r, ctx, page)
+	renderFn(w, r, ctx, page)
 }
 
 // If we get an error that can't be handled, call this to write the response

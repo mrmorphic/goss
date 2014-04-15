@@ -1,20 +1,18 @@
 package goss
 
 import (
-	"strings"
-	"errors"
-	"strconv"
-	"reflect"
-	"fmt"
 	"database/sql"
+	"errors"
+	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
 	"time"
 )
 
-/**
- * Execute a SQL query, returning the resulting rows. Creates a database connection on demand.
- */
+// Execute a SQL query, returning the resulting rows. Creates a database connection on demand.
 func (ctx *DBContext) Query(sql string) (q *sql.Rows, e error) {
-//	fmt.Println("sql: " + sql)
+	//	fmt.Println("sql: " + sql)
 	if ctx.db == nil {
 		// get databae connection on demand
 		ctx.db, e = dbFactory()
@@ -28,17 +26,17 @@ func (ctx *DBContext) Query(sql string) (q *sql.Rows, e error) {
 		return
 	}
 
-	q, e = st.Query();
+	q, e = st.Query()
 	return
 }
 
 type DataObject struct {
-	fields map[string] interface{}
+	fields map[string]interface{}
 	// @todo add ClassInfo to DataObject
-//	fields []interface{}
+	//	fields []interface{}
 }
 
-func (obj* DataObject) FieldByName(fieldName string) interface{} {
+func (obj *DataObject) FieldByName(fieldName string) interface{} {
 	return obj.fields[fieldName]
 }
 
@@ -48,11 +46,11 @@ func (obj *DataObject) AsString(fieldName string) string {
 
 	t := reflect.TypeOf(iv)
 	switch t.String() {
-		case "*sql.NullString":
-			s := iv.(*sql.NullString)
-			return s.String
-		default:
-			return "don't know this type: " + t.String()
+	case "*sql.NullString":
+		s := iv.(*sql.NullString)
+		return s.String
+	default:
+		return "don't know this type: " + t.String()
 	}
 	return "don't know"
 }
@@ -62,13 +60,13 @@ func (obj *DataObject) AsInt(fieldName string) (int, error) {
 
 	t := reflect.TypeOf(iv)
 	switch t.String() {
-		case "*sql.NullInt64":
-			s := iv.(*sql.NullInt64)
-			return int(s.Int64), nil
-		case "*sql.NullString":
-			// observed but not expected
-			v := iv.(*sql.NullString)
-			return strconv.Atoi(v.String)
+	case "*sql.NullInt64":
+		s := iv.(*sql.NullInt64)
+		return int(s.Int64), nil
+	case "*sql.NullString":
+		// observed but not expected
+		v := iv.(*sql.NullString)
+		return strconv.Atoi(v.String)
 	}
 	return 0, errors.New("AsInt doesn't understand type " + t.String())
 }
@@ -88,35 +86,35 @@ func (ctx *DBContext) DataObjectFromRow(r *sql.Rows) (obj *DataObject, e error) 
 
 	var field []interface{}
 	for i := 0; i < colCount; i++ {
-		switch { 
-		case cols[i][:2] == "b:": 
-			field = append(field, new(sql.NullBool)) 
-		case cols[i][:2] == "f:": 
-			field = append(field, new(sql.NullFloat64)) 
-		case cols[i][:2] == "i:": 
-			field = append(field, new(sql.NullInt64)) 
-		case cols[i][:2] == "s:": 
-			field = append(field, new(sql.NullString)) 
-		case cols[i][:2] == "t:": 
-			field = append(field, new(time.Time)) 
-		default: 
-			field = append(field, new(sql.NullString)) 
-		} 
-	} 
+		switch {
+		case cols[i][:2] == "b:":
+			field = append(field, new(sql.NullBool))
+		case cols[i][:2] == "f:":
+			field = append(field, new(sql.NullFloat64))
+		case cols[i][:2] == "i:":
+			field = append(field, new(sql.NullInt64))
+		case cols[i][:2] == "s:":
+			field = append(field, new(sql.NullString))
+		case cols[i][:2] == "t:":
+			field = append(field, new(time.Time))
+		default:
+			field = append(field, new(sql.NullString))
+		}
+	}
 
-//fmt.Printf("cols are %s\n", cols)
-//fmt.Printf("there are %d columns\n", colCount)
-//fmt.Println("about to scan values")
+	//fmt.Printf("cols are %s\n", cols)
+	//fmt.Printf("there are %d columns\n", colCount)
+	//fmt.Println("about to scan values")
 	// get associated values
 	e = r.Scan(field...)
 
-//fmt.Println("scanned fields")
+	//fmt.Println("scanned fields")
 	if e != nil {
 		fmt.Printf("got an error though: %s\n", e)
 		return nil, e
 	}
 
-	m := make(map[string] interface{}, colCount)
+	m := make(map[string]interface{}, colCount)
 
 	for i, c := range cols {
 		m[c] = field[i]
@@ -142,45 +140,45 @@ func (set *DataList) First() *DataObject {
 }
 
 type DataQuery struct {
-	where []string
-	columns []string
-	orderBy string
-	start int
-	limit int
+	where     []string
+	columns   []string
+	orderBy   string
+	start     int
+	limit     int
 	baseClass string
 }
 
-func (q *DataQuery) Where(clause string) (*DataQuery) {
+func (q *DataQuery) Where(clause string) *DataQuery {
 	q.where = append(q.where, clause)
 	return q
 }
 
-func (q *DataQuery) Columns(columns []string) (*DataQuery) {
+func (q *DataQuery) Columns(columns []string) *DataQuery {
 	q.columns = columns
 	return q
 }
 
-func (q *DataQuery) Count(coumn string) (*DataQuery) {
+func (q *DataQuery) Count(coumn string) *DataQuery {
 	return q
 }
 
-func (q *DataQuery) OrderBy(clause string) (*DataQuery) {
+func (q *DataQuery) OrderBy(clause string) *DataQuery {
 	q.orderBy = clause
 	return q
 }
 
-func (q *DataQuery) Limit(start, number int) (*DataQuery) {
+func (q *DataQuery) Limit(start, number int) *DataQuery {
 	q.start = start
 	q.limit = number
 	return q
 }
 
-func (q *DataQuery) BaseClass(className string) (*DataQuery) {
+func (q *DataQuery) BaseClass(className string) *DataQuery {
 	q.baseClass = className
 	return q
 }
 
-func (q *DataQuery) Filter(field string, filterValue interface{}) (*DataQuery) {
+func (q *DataQuery) Filter(field string, filterValue interface{}) *DataQuery {
 	return q
 }
 
@@ -216,7 +214,7 @@ func (q *DataQuery) sql(ctx *DBContext) (s string, e error) {
 	if q.start >= 0 {
 		sql += " limit " + strconv.Itoa(q.start) + ", " + strconv.Itoa(q.limit)
 	}
-fmt.Printf("query is %s\n", sql)
+	fmt.Printf("query is %s\n", sql)
 	return sql, nil
 }
 
@@ -245,7 +243,7 @@ func (q *DataQuery) Exec(ctx *DBContext) (set *DataList, e error) {
 	return set, nil
 }
 
-func NewQuery() *DataQuery{
+func NewQuery() *DataQuery {
 	q := new(DataQuery)
 	q.start = -1
 	return q

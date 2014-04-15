@@ -1,23 +1,19 @@
 package goss
 
 import (
-	"encoding/json"
-	"os"
-	"io"
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 )
 
-/**
- * This file handles things to do with the metadata that generated a database we're connecting with.
- * The ORM needs this to make sense of the tables and relationships etc, and allow the user to reference
- * the classes as in PHP.
- */
+// This file handles things to do with the metadata that generated a database we're connecting with.
+// The ORM needs this to make sense of the tables and relationships etc, and allow the user to reference
+// the classes as in PHP.
 
-/**
- * Represents a database. We hold one such record for each database we connect to. This is common across
- * all connections.
- */
+// DBMetadata represents the structure of a SilverStripe database. We create one instance for each database
+// we connect to. This is common across all connections.
 type DBMetadata struct {
 	// Identifier
 	DBIdentifier string
@@ -26,27 +22,25 @@ type DBMetadata struct {
 	Classes []*ClassInfo
 
 	// Map of class name to ClassInfo object.
-	ClassMap map[string] *ClassInfo
+	ClassMap map[string]*ClassInfo
 }
 
 type DBField struct {
-	Name string
+	Name   string
 	SSType string
 }
 
-/**
- * This holds metadata about each class. We read this in from the file system.
- */
+// This holds metadata about each class. We read this in from the file system.
 type ClassInfo struct {
-	ClassName string
-	HasTable bool
-	Versioned bool
-	TableName string
-	Ancestors []string
+	ClassName   string
+	HasTable    bool
+	Versioned   bool
+	TableName   string
+	Ancestors   []string
 	Descendents []string
-//	Fields []*DBField
-//	SuperClasses []*ClassInfo
-//	SubClasses []*ClassInfo
+	//	Fields []*DBField
+	//	SuperClasses []*ClassInfo
+	//	SubClasses []*ClassInfo
 
 	// We'll pre-calculate the FROM clause for queries where this class is the base class. This makes query
 	// construction very fast and almost trivial.
@@ -57,17 +51,15 @@ type ClassInfo struct {
 	defaultWhere string
 }
 
-var Databases map[string] *DBMetadata
+var Databases map[string]*DBMetadata
 
 func init() {
-	Databases = make(map[string] *DBMetadata)
+	Databases = make(map[string]*DBMetadata)
 }
 
-/**
- * Refresh this metadata object from the metadata source file provided. We only actually do that under two circumstances:
- * - we have not initialised yet
- * - the metadata file has a modification time that is more recent than when we last refreshed.
- */
+// Refresh this metadata object from the metadata source file provided. We only actually do that under two circumstances:
+// - we have not initialised yet
+// - the metadata file has a modification time that is more recent than when we last refreshed.
 func (dbm *DBMetadata) RefreshOnDemand(metadataSource string) error {
 	fmt.Printf("DBMetadata::RefreshOnDemand called with %s\n", metadataSource)
 
@@ -95,25 +87,21 @@ func (dbm *DBMetadata) RefreshOnDemand(metadataSource string) error {
 	return nil
 }
 
-/**
- * After loading metadata from the JSON file, we then pre-calculate some cached info that makes the ORM faster. As much as possible we want to bypass looking up classes
- * by name, instead creating an object graph that can be traversed in SQL generation.
- */
+// After loading metadata from the JSON file, we then pre-calculate some cached info that makes the ORM faster. As much as possible we want to bypass looking up classes
+// by name, instead creating an object graph that can be traversed in SQL generation.
 func (dbm *DBMetadata) precache() {
 	// First create a map of classes by name.
-	dbm.ClassMap = make(map[string] *ClassInfo)
+	dbm.ClassMap = make(map[string]*ClassInfo)
 	for _, c := range dbm.Classes {
 		dbm.ClassMap[c.ClassName] = c
 	}
 	fmt.Printf("before precache, class map is %s\n", dbm.ClassMap)
 	for _, c := range dbm.Classes {
 		c.precacheDefaultFromWhere(dbm)
-	}	
+	}
 }
 
-/**
- * Calculate the defaultFrom property, which is going to be a join clause
- */
+// Calculate the defaultFrom property, which is going to be a join clause
 func (ci *ClassInfo) precacheDefaultFromWhere(dbm *DBMetadata) {
 	fromClause := ""
 	whereClause := ""
@@ -125,7 +113,7 @@ func (ci *ClassInfo) precacheDefaultFromWhere(dbm *DBMetadata) {
 
 	fmt.Printf("... processing ancestors\n")
 	// Join all ancestors leading up to this class, including the class itself, but only where a class has a table.
-	for _,c := range ci.Ancestors {
+	for _, c := range ci.Ancestors {
 		a := dbm.GetClass(c)
 
 		if rootTable == "" {
@@ -147,8 +135,8 @@ func (ci *ClassInfo) precacheDefaultFromWhere(dbm *DBMetadata) {
 
 	// Join all ancestors leading up to this class, including the class itself, but only where a class has a table.
 	fmt.Printf("... processing descendents\n")
-	whereClause = "(\"" + rootTable + "\".\"ClassName\"='" + ci.ClassName +  "'"
-	for _,c := range ci.Descendents {
+	whereClause = "(\"" + rootTable + "\".\"ClassName\"='" + ci.ClassName + "'"
+	for _, c := range ci.Descendents {
 		d := dbm.GetClass(c)
 		fmt.Printf("...looking up descendent class %s\n", c)
 		if d == nil {
@@ -159,14 +147,14 @@ func (ci *ClassInfo) precacheDefaultFromWhere(dbm *DBMetadata) {
 			fromClause += "\"" + d.TableName + "\" \"" + d.TableName + "\""
 			fromClause += " on \"" + lastTable + "\".\"ID\"=\"" + d.TableName + "\".\"ID\""
 		}
-		whereClause += " or \"" + rootTable + "\".\"ClassName\"='" + d.ClassName +  "'"
+		whereClause += " or \"" + rootTable + "\".\"ClassName\"='" + d.ClassName + "'"
 
 	}
 	whereClause += ")"
 
-//	fmt.Printf("precache: calculated defaultFrom for class %s: %s\n\n\n", ci.ClassName, fromClause)
+	//	fmt.Printf("precache: calculated defaultFrom for class %s: %s\n\n\n", ci.ClassName, fromClause)
 	ci.defaultFrom = fromClause
-//	fmt.Printf("precache: calculated defaultWhere for class %s: %s\n\n\n", ci.ClassName, whereClause)
+	//	fmt.Printf("precache: calculated defaultWhere for class %s: %s\n\n\n", ci.ClassName, whereClause)
 	ci.defaultWhere = whereClause
 }
 
@@ -184,12 +172,10 @@ func (dbm *DBMetadata) IsVersioned(className string) bool {
 	return c.Versioned
 }
 
-/**
- * Return a ClassInfo and all it's defined properties given a class name.
- */
+// Return a ClassInfo and all it's defined properties given a class name.
 func (dbm *DBMetadata) GetClass(className string) *ClassInfo {
 	fmt.Printf("GetClass: getting %s\n", className)
-//	fmt.Printf("GetClass: map is %s\n", dbm.ClassMap)
+	//	fmt.Printf("GetClass: map is %s\n", dbm.ClassMap)
 	return dbm.ClassMap[className]
 }
 
@@ -199,6 +185,6 @@ func (dbm *DBMetadata) IsSubclass(className string, inclusive bool) (bool, error
 }
 
 func (dbm *DBMetadata) TablesForClass(className string) ([]string, error) {
-	var t = []string { "SiteTree" }
+	var t = []string{"SiteTree"}
 	return t, nil
 }
