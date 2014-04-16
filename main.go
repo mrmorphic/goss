@@ -77,6 +77,9 @@ func (ctx *DBContext) findNotFoundPage(r *http.Request) (int, error) {
 	return 0, errors.New("not found")
 }
 
+func SetConfig(conf Config) {
+}
+
 // SetConnection is used by the application to provide the DB factory and DB close connection methods.
 // goss does not know how to connect to the DB by itself.
 // This may change, as do need in the orm to know what kind of DB we're dealing with for SQL generation.
