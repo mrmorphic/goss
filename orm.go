@@ -12,16 +12,7 @@ import (
 
 // Execute a SQL query, returning the resulting rows. Creates a database connection on demand.
 func (ctx *DBContext) Query(sql string) (q *sql.Rows, e error) {
-	//	fmt.Println("sql: " + sql)
-	if ctx.db == nil {
-		// get databae connection on demand
-		ctx.db, e = dbFactory()
-		if e != nil {
-			return
-		}
-	}
-
-	st, e := ctx.db.Prepare(sql)
+	st, e := database.Prepare(sql)
 	if e != nil {
 		return
 	}
