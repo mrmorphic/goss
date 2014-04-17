@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-// Execute a SQL query, returning the resulting rows. Creates a database connection on demand.
-func (ctx *DBContext) Query(sql string) (q *sql.Rows, e error) {
+// Execute a SQL query, returning the resulting rows.
+func Query(sql string) (q *sql.Rows, e error) {
 	st, e := database.Prepare(sql)
 	if e != nil {
 		return
@@ -70,7 +70,7 @@ func (obj *DataObject) Debug() string {
 	return s
 }
 
-func (ctx *DBContext) DataObjectFromRow(r *sql.Rows) (obj *DataObject, e error) {
+func DataObjectFromRow(r *sql.Rows) (obj *DataObject, e error) {
 	// Get columns
 	cols, e := r.Columns()
 	colCount := len(cols)
@@ -169,7 +169,7 @@ func (q *DataQuery) Filter(field string, filterValue interface{}) *DataQuery {
 }
 
 // Generate the SQL for this DataQuery
-func (q *DataQuery) sql(ctx *DBContext) (s string, e error) {
+func (q *DataQuery) sql() (s string, e error) {
 	if q.baseClass == "" {
 		return "", errors.New("No base class")
 	}
@@ -184,7 +184,7 @@ func (q *DataQuery) sql(ctx *DBContext) (s string, e error) {
 
 	// Tables. This is basically a join of all tables from base DataObject thru to the table for the class, and all
 	// tables for subclasses. This will have been precalculated, so it's trivial here.
-	baseClass := ctx.Metadata.GetClass(q.baseClass)
+	baseClass := dbMetadata.GetClass(q.baseClass)
 	sql += "from " + baseClass.defaultFrom
 
 	// where clause
@@ -204,13 +204,13 @@ func (q *DataQuery) sql(ctx *DBContext) (s string, e error) {
 	return sql, nil
 }
 
-func (q *DataQuery) Exec(ctx *DBContext) (set *DataList, e error) {
-	sql, e := q.sql(ctx)
+func (q *DataQuery) Exec() (set *DataList, e error) {
+	sql, e := q.sql()
 	if e != nil {
 		return nil, e
 	}
 
-	res, e := ctx.Query(sql)
+	res, e := Query(sql)
 	if e != nil {
 		fmt.Printf("ERROR EXECUTING SQL: %s\n", e)
 		return nil, e
@@ -219,7 +219,7 @@ func (q *DataQuery) Exec(ctx *DBContext) (set *DataList, e error) {
 	set = NewDataList()
 
 	for res.Next() {
-		obj, e := ctx.DataObjectFromRow(res)
+		obj, e := DataObjectFromRow(res)
 		if e != nil {
 			return nil, e
 		}

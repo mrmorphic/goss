@@ -2,6 +2,7 @@ package goss
 
 import (
 	"database/sql"
+
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,7 +10,7 @@ import (
 	"strings"
 )
 
-type RenderFunc func(http.ResponseWriter, *http.Request, *DBContext, *DataObject)
+type RenderFunc func(http.ResponseWriter, *http.Request, *DataObject)
 
 type NavigationProvider interface {
 	Menu(level int) DataList
@@ -23,23 +24,18 @@ var metadataSource string
 
 var dbMetadata *DBMetadata
 
-type DBContext struct {
-	db       *sql.DB
-	Metadata *DBMetadata
-}
-
 // Given a request, follow the segments through sitetree to find the page that is being requested. Doesn't
 // understand actions, so just finds the page. Returns ID of SiteTree_Live record or 0 if it can't find a
 // matching page.
 // @todo Understand BaseController actions, or break on the furthest it gets up the tree
 // @todo cache site tree
-func (ctx *DBContext) findPageToRender(r *http.Request) (int, error) {
+func findPageToRender(r *http.Request) (int, error) {
 	s := strings.Trim(r.URL.Path, "/")
 	path := strings.Split(s, "/")
 
 	if len(path) == 0 || path[0] == "" {
 		// find a home page ID
-		r, e := ctx.Query("select \"ID\" from \"SiteTree_Live\" where \"URLSegment\"='home' and \"ParentID\"=0")
+		r, e := Query("select \"ID\" from \"SiteTree_Live\" where \"URLSegment\"='home' and \"ParentID\"=0")
 		if e != nil {
 			return 0, e
 		}
@@ -55,7 +51,7 @@ func (ctx *DBContext) findPageToRender(r *http.Request) (int, error) {
 
 	currParentID := 0
 	for _, p := range path {
-		r, e := ctx.Query("select \"ID\",\"ParentID\" from \"SiteTree_Live\" where \"URLSegment\"='" + p + "' and \"ParentID\"=" + strconv.Itoa(currParentID))
+		r, e := Query("select \"ID\",\"ParentID\" from \"SiteTree_Live\" where \"URLSegment\"='" + p + "' and \"ParentID\"=" + strconv.Itoa(currParentID))
 		if e != nil {
 			return 0, e
 		}
@@ -73,17 +69,17 @@ func (ctx *DBContext) findPageToRender(r *http.Request) (int, error) {
 }
 
 // Find the 'PageNotFound' error page and return it's ID
-func (ctx *DBContext) findNotFoundPage(r *http.Request) (int, error) {
+func findNotFoundPage(r *http.Request) (int, error) {
 	return 0, errors.New("not found")
 }
-
-type setupFunc func(conf Config) error
 
 // SetConfig tells goss the configuration object to use. This should be called before requests are accepted.
 // The configuration properties that goss understands will be read at this point.
 func SetConfig(conf Config) error {
-	setupFunctions := []func(Config) error{setupDB, setupMetadata}
+	fmt.Printf("SetConfig called\n")
+	setupFunctions := []func(Config) error{setupMetadata, setupDB}
 	for _, fn := range setupFunctions {
+		fmt.Printf("calling an init function\n")
 		e := fn(conf)
 		if e != nil {
 			return e
@@ -109,20 +105,27 @@ func setupDB(config Config) error {
 
 	maxIdleConnections := -1 // default is no idle connections
 	mi := config.Get("goss.database.maxIdleConnections")
-	maxIdleConnections, ok := mi.(int)
-	if !ok {
+	mif, ok := mi.(float64)
+	if ok {
+		maxIdleConnections = int(mif)
+	} else {
 		return errors.New("goss expects config property goss.database.maxIdleConnections to be of type 'int'.")
+
 	}
 
 	// put back in once at go 1.2
-	// maxOpenConnections := -1 // default is no limit on open connections
-	// mo := config.Get("goss.database.maxOpenConnections")
-	// maxOpenConnections, ok = mo.(int)
-	// if !ok {
-	// 	return errors.New("goss expects config property goss.database.maxOpenConnections to be of type 'int'.")
-	// }
+	maxOpenConnections := -1 // default is no limit on open connections
+	mo := config.Get("goss.database.maxOpenConnections")
+	mof, ok := mo.(float64)
+	if ok {
+		maxOpenConnections = int(mof)
 
-	database, e := sql.Open(driverName, dataSourceName)
+	} else {
+		return errors.New("goss expects config property goss.database.maxOpenConnections to be of type 'int'.")
+	}
+
+	var e error
+	database, e = sql.Open(driverName, dataSourceName)
 	if e != nil {
 		return e
 	}
@@ -130,17 +133,28 @@ func setupDB(config Config) error {
 	fmt.Printf("opened database %s: %s\n", driverName, dataSourceName)
 
 	database.SetMaxIdleConns(maxIdleConnections)
-	//	database.SetMaxOpenConns(maxOpenConnections) // requires go 1.2
+	database.SetMaxOpenConns(maxOpenConnections) // requires go 1.2
 
+	// @todo hack alert, refactor driver-specific things.
+	if driverName == "mysql" {
+		_, e = database.Query("SET GLOBAL TRANSACTION ISOLATION LEVEL SERIALIZABLE;")
+		_, e = database.Query("SET GLOBAL sql_mode = 'ANSI'")
+	}
 	return nil
 }
 
 func setupMetadata(conf Config) error {
-	// metadataSource = conf.AsString("goss.metadata")
-	// if metadataSource == "" {
-	// 	return errors.New("goss requires configuration property goss.metadata is set.")
-	// }
-	return nil
+	fmt.Printf("setupMetadata called\n")
+	metadataSource = conf.AsString("goss.metadata")
+	if metadataSource == "" {
+		return errors.New("goss requires configuration property goss.metadata is set.")
+	}
+
+	dbMetadata = new(DBMetadata)
+	e := dbMetadata.RefreshOnDemand(metadataSource)
+
+	fmt.Printf("metadata is %s\n", dbMetadata)
+	return e
 }
 
 // Handle a request for a general page out of site tree:
@@ -156,28 +170,24 @@ func setupMetadata(conf Config) error {
 // @todo read sitetree for identified record. Needs to read all properties of the site tree. How?
 // @todo read full object from site tree, which requires meta-data from SS application.
 func SiteTreeHandler(w http.ResponseWriter, r *http.Request, renderFn RenderFunc) {
-	if dbMetadata == nil {
-		// Generate the metadata object on demand
-		dbMetadata = new(DBMetadata)
-	}
-	e := dbMetadata.RefreshOnDemand(metadataSource)
-	if e != nil {
-		ErrorHandler(w, r, e)
-		return
-	}
+	// if dbMetadata == nil {
+	// 	// Generate the metadata object on demand
+	// 	dbMetadata = new(DBMetadata)
+	// }
+	// e := dbMetadata.RefreshOnDemand(metadataSource)
+	// if e != nil {
+	// 	ErrorHandler(w, r, e)
+	// 	return
+	// }
 
-	// @todo can metadata be a shared global instead of allocating it each time? What about updates to the metadata?
-	// @todo use metadataSource to initialise DBMetadata, if the file hasn't changed.
-	ctx := &DBContext{database, dbMetadata}
-
-	pageID, e := ctx.findPageToRender(r)
+	pageID, e := findPageToRender(r)
 	if e != nil {
 		ErrorHandler(w, r, e)
 		return
 	}
 
 	if pageID == 0 {
-		pageID, e = ctx.findNotFoundPage(r)
+		pageID, e = findNotFoundPage(r)
 	}
 
 	if e != nil {
@@ -195,7 +205,7 @@ func SiteTreeHandler(w http.ResponseWriter, r *http.Request, renderFn RenderFunc
 	//	fmt.Printf("SiteTreeHandler has found a page: %d\n", pageID)
 
 	q := NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ID\"=" + strconv.Itoa(pageID))
-	res, _ := q.Exec(ctx)
+	res, _ := q.Exec()
 
 	if e != nil {
 		ErrorHandler(w, r, e)
@@ -210,7 +220,7 @@ func SiteTreeHandler(w http.ResponseWriter, r *http.Request, renderFn RenderFunc
 
 	page := res.Items[0]
 
-	renderFn(w, r, ctx, page)
+	renderFn(w, r, page)
 }
 
 // If we get an error that can't be handled, call this to write the response

@@ -8,35 +8,33 @@ import (
 )
 
 type Controller interface {
-	Init(w http.ResponseWriter, r *http.Request, ctx *DBContext, object *DataObject)
+	Init(w http.ResponseWriter, r *http.Request, object *DataObject)
 }
 
 // Base type for BaseController. Goss doesn't directly create this; it is a base for the application
 // to extend.
 type BaseController struct {
-	DB      *DBContext
 	Object  *DataObject
 	Request *http.Request
 	Output  http.ResponseWriter
 }
 
-func (c *BaseController) Init(w http.ResponseWriter, r *http.Request, ctx *DBContext, object *DataObject) {
+func (c *BaseController) Init(w http.ResponseWriter, r *http.Request, object *DataObject) {
 	c.Object = object
 	c.Request = r
 	c.Output = w
-	c.DB = ctx
 }
 
 func (ctl *BaseController) Menu(level int) (set *DataList, e error) {
 	q := NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ParentID\"=0").Where("\"ShowInMenus\"=1").OrderBy("\"Sort\" ASC")
-	set, e = q.Exec(ctl.DB)
+	set, e = q.Exec()
 	return
 }
 
 // Return the SiteConfig DataObject.
 func (ctl *BaseController) SiteConfig() (obj *DataObject, e error) {
 	q := NewQuery("SiteConfig").Limit(0, 1)
-	res, e := q.Exec(ctl.DB)
+	res, e := q.Exec()
 	if e != nil {
 		return nil, e
 	}
@@ -63,7 +61,7 @@ func (ctl *BaseController) Path(obj *DataObject, field string) (string, error) {
 	if obj == nil {
 		return "", errors.New("Cannot determine path to empty object")
 	}
-	hier, e := ctl.DB.Metadata.IsHierarchical(obj.AsString("ClassName"))
+	hier, e := dbMetadata.IsHierarchical(obj.AsString("ClassName"))
 	if e != nil {
 		return "", e
 	}
@@ -80,7 +78,7 @@ func (ctl *BaseController) Path(obj *DataObject, field string) (string, error) {
 	for parentID, e := obj.AsInt("ParentID"); e != nil && parentID > 0; {
 		// @todo don't hardcode "SiteTree", derive the base class using metadata.
 		q := NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ID\"=" + strconv.Itoa(parentID))
-		ds, e := q.Exec(ctl.DB)
+		ds, e := q.Exec()
 		if e != nil {
 			return "", e
 		}
