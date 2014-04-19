@@ -22,6 +22,9 @@ var database *sql.DB
 // metadataSource is a path to the file containing metadata used by the ORM.
 var metadataSource string
 
+// global configuration
+var configuration *Config
+
 var dbMetadata *DBMetadata
 
 // Given a request, follow the segments through sitetree to find the page that is being requested. Doesn't
@@ -76,7 +79,7 @@ func findNotFoundPage(r *http.Request) (int, error) {
 // SetConfig tells goss the configuration object to use. This should be called before requests are accepted.
 // The configuration properties that goss understands will be read at this point.
 func SetConfig(conf Config) error {
-	fmt.Printf("SetConfig called\n")
+	configuration = conf
 	setupFunctions := []func(Config) error{setupMetadata, setupDB}
 	for _, fn := range setupFunctions {
 		fmt.Printf("calling an init function\n")
