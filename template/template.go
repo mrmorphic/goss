@@ -100,15 +100,12 @@ func (t *token) printable() string {
 
 // compiledTemplate is just a list of chunks to process in order. Some chunks may contain nested compiledTemplate.
 type compiledTemplate struct {
-	chunks []chunk
+	// a compiled template only contains one chunk, which is always a chunkBlock
+	chunk chunk
 }
 
 func newCompiledTemplate() *compiledTemplate {
-	return &compiledTemplate{chunks: make([]chunk, 0)}
-}
-
-func (c *compiledTemplate) push(item chunk) {
-	c.chunks = append(c.chunks, item)
+	return &compiledTemplate{}
 }
 
 // compiledTemplates maps template paths (relative to theme folder) to compiled templates.

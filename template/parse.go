@@ -16,23 +16,28 @@ func newParser() *parser {
 // reduce the source string into chunks.
 func (p *parser) parseSource(source string) (*compiledTemplate, error) {
 	p.scanner = newScanner(source)
+	result := newCompiledTemplate()
 
-	result, e := p.parseContent()
+	chunk, e := p.parseContent()
 	if e != nil {
 		return nil, e
 	}
 
 	// ensure there is no left-over
 	fmt.Printf("Parsed result: %s\n", result)
+
+	result.chunk = chunk
+
 	return result, nil
 }
 
 // parseContent parses content, which is broadly a sequence of literals, $xxx and <% %> blocks. It is also
 // value to see TOKEN_END_SOURCE. This is used to parse the top-level, but will stop when it sees something it
 // doesn't know, because it is also used to parse nested content.
-func (p *parser) parseContent() (*compiledTemplate, error) {
+func (p *parser) parseContent() (chunk, error) {
 	fmt.Printf("parseContent\n")
-	result := newCompiledTemplate()
+
+	var chunks []chunk
 
 loop:
 	for {
@@ -44,7 +49,7 @@ loop:
 
 		switch {
 		case tk.kind == TOKEN_LITERAL:
-			result.push(newChunkLiteral(tk.value))
+			chunks = append(chunks, newChunkLiteral(tk.value))
 		case tk.kind == TOKEN_OPEN:
 			// parse the content of the tag
 			ch, e := p.parseTag()
@@ -58,7 +63,7 @@ loop:
 				return nil, e
 			}
 
-			result.push(ch)
+			chunks = append(chunks, ch)
 		case tk.kind == TOKEN_END_SOURCE:
 			p.scanner.putBack(tk)
 			break loop
@@ -67,7 +72,7 @@ loop:
 		}
 	}
 
-	return result, nil
+	return newChunkBlock(chunks), nil
 }
 
 // read one token, and check that it is of the required kind. Return an error on scanning error, or if the kind doesn't match.
