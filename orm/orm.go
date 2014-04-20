@@ -1,4 +1,4 @@
-package goss
+package orm
 
 import (
 	"database/sql"
@@ -9,6 +9,14 @@ import (
 	"strings"
 	"time"
 )
+
+// database is actually a connection pool. The pool is automatically managed, and works across go-routines.
+var database *sql.DB
+
+// metadataSource is a path to the file containing metadata used by the ORM.
+var metadataSource string
+
+var dbMetadata *DBMetadata
 
 // Execute a SQL query, returning the resulting rows.
 func Query(sql string) (q *sql.Rows, e error) {
@@ -149,7 +157,7 @@ func (q *DataQuery) Columns(columns []string) *DataQuery {
 	return q
 }
 
-func (q *DataQuery) Count(coumn string) *DataQuery {
+func (q *DataQuery) Count(column string) *DataQuery {
 	return q
 }
 
@@ -234,4 +242,8 @@ func NewQuery(className string) *DataQuery {
 	q.start = -1
 	q.baseClass = className
 	return q
+}
+
+func IsHierarchical(className string) bool {
+	return dbMetadata.IsHierarchical(className)
 }

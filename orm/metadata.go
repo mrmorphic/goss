@@ -1,4 +1,4 @@
-package goss
+package orm
 
 import (
 	"bufio"
@@ -158,12 +158,12 @@ func (ci *ClassInfo) precacheDefaultFromWhere(dbm *DBMetadata) {
 	ci.defaultWhere = whereClause
 }
 
-func (dbm *DBMetadata) IsHierarchical(className string) (bool, error) {
+func (dbm *DBMetadata) IsHierarchical(className string) bool {
 	// @todo implement
 	if className == "SiteTree" || className == "ProjectPage" || className == "EntryPage" || className == "ProjectHolder" || className == "SpecialProjectPage" || className == "HomePage" || className == "FeedbackPage" || className == "MessagesPage" || className == "Page" {
-		return true, nil
+		return true
 	}
-	return false, nil
+	return false
 }
 
 func (dbm *DBMetadata) IsVersioned(className string) bool {
