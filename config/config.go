@@ -1,4 +1,6 @@
-package goss
+// Config package provides an implementation of ConfigProvider. Currently it only reads from a JSON file, but
+// this may be extended to support other forms.
+package config
 
 import (
 	"encoding/json"
@@ -7,9 +9,11 @@ import (
 	"reflect"
 )
 
+// Concrete storage for the configuration values read. The map keys are dot-delimited.
 type Config map[string]interface{}
 
-func ReadConfigFromFile(path string) (Config, error) {
+// ReadFromFile reads the configuration from JSON in the provided path.
+func ReadFromFile(path string) (Config, error) {
 	// read file
 	data, e := ioutil.ReadFile(path)
 	if e != nil {
