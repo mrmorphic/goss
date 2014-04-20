@@ -6,6 +6,7 @@ const (
 	CHUNK_LITERAL  chunkKind = iota // literal text to emit
 	CHUNK_BASE_TAG                  // <% base_tag %> substitution
 	CHUNK_INCLUDE                   // process an include file
+	CHUNK_BLOCK                     // a sequence of sub-chunks
 )
 
 // chunk represents a piece of a template. The type indicates which piece this.
@@ -47,4 +48,16 @@ func (c *chunkInclude) kind() chunkKind {
 
 func newChunkInclude(c *compiledTemplate) chunk {
 	return &chunkInclude{c}
+}
+
+type chunkBlock struct {
+	chunks []chunk
+}
+
+func (c *chunkBlock) kind() chunkKind {
+	return CHUNK_BLOCK
+}
+
+func newChunkBlock(chunks []chunk) chunk {
+	return &chunkBlock{chunks: chunks}
 }
