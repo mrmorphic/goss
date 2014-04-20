@@ -264,3 +264,12 @@ Some functions provided by Controller include:
  *	func (ctl *BaseController) Path(obj *DataObject, field string) (string, error)
  	This is a helper function that returns a portion of the path to a data object in SiteTree, by concatenating
  	the URLSegments. This is useful in writing link-generation functions on SiteTree objects.
+
+## Revised Notes
+
+ *  Muxer is used to map routes to handlers
+ *  SiteTreeHandler is a handler
+ *  Since DataObjects are thin and don't have methods attached in this release, controllers are used to do this
+    as well. So caller needs to add mapping of DataObjects to controllers.
+ *  route -> handler -> controller
+ *  ContentController will automatically render based on templates.
