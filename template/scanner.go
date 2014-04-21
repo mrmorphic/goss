@@ -2,7 +2,6 @@ package template
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 )
 
@@ -28,7 +27,6 @@ const (
 
 // Given a string s, scan 1 token and return it, and the reduced string.
 func (sc *scanner) scanToken() (*token, error) {
-	fmt.Printf("scanToken (%s)\n", sc)
 	if sc.unprocessedToken != nil {
 		// if there is a token that was put back, return it again and leave the input stream alone
 		result := sc.unprocessedToken

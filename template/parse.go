@@ -23,10 +23,10 @@ func (p *parser) parseSource(source string) (*compiledTemplate, error) {
 		return nil, e
 	}
 
-	// ensure there is no left-over
-	fmt.Printf("Parsed result: %s\n", result)
-
 	result.chunk = chunk
+
+	// ensure there is no left-over
+	fmt.Printf("Parsed result: \n%s\n", chunk.printable(0))
 
 	return result, nil
 }
@@ -34,10 +34,10 @@ func (p *parser) parseSource(source string) (*compiledTemplate, error) {
 // parseContent parses content, which is broadly a sequence of literals, $xxx and <% %> blocks. It is also
 // value to see TOKEN_END_SOURCE. This is used to parse the top-level, but will stop when it sees something it
 // doesn't know, because it is also used to parse nested content.
-func (p *parser) parseContent() (chunk, error) {
+func (p *parser) parseContent() (*chunk, error) {
 	fmt.Printf("parseContent\n")
 
-	var chunks []chunk
+	var chunks []*chunk
 
 loop:
 	for {
@@ -102,8 +102,21 @@ func (p *parser) expectSym(s string) error {
 	return nil
 }
 
+// Expect 3 tokens in a sequence: TOKEN_OPEN, TOKEN_SYMBOL (matching tag), TOKEN_CLOSE
+func (p *parser) expectTag(tag string) error {
+	e := p.expectKind(TOKEN_OPEN)
+	if e != nil {
+		return e
+	}
+	e = p.expectSym(tag)
+	if e != nil {
+		return e
+	}
+	return p.expectKind(TOKEN_CLOSE)
+}
+
 // parse the what is in between <% and %>, but not including those tokens. This is largely a dispatcher for what is in the tag.
-func (p *parser) parseTag() (chunk, error) {
+func (p *parser) parseTag() (*chunk, error) {
 	tk, e := p.scanner.scanToken()
 	if e != nil {
 		return nil, e
@@ -136,7 +149,7 @@ func (p *parser) parseTag() (chunk, error) {
 
 // Parse an include tag. The 'include' keyword has already been scanned. In it's simplest form, this will just have another identifier which
 // is the include file. It may also have a comma-separate list of name=value pairs which provide context into the included template.
-func (p *parser) parseInclude() (chunk, error) {
+func (p *parser) parseInclude() (*chunk, error) {
 	tk, e := p.scanner.scanToken()
 	if e != nil {
 		return nil, e
@@ -161,31 +174,241 @@ func (p *parser) parseInclude() (chunk, error) {
 	return newChunkInclude(compiled), nil
 }
 
-func (p *parser) parseIf() (chunk, error) {
+func (p *parser) parseIf() (*chunk, error) {
+	// parse condition
+	// parse %>
+	// parse truePart
+	// test for <% else_if %>
+	// test if <% else %> is present
+	// parse <% end_if %>
 	return nil, nil
 }
 
 // parse a <% loop %> ... <% end_loop %> structure. "<% loop" has already been parsed.
-func (p *parser) parseLoop() (chunk, error) {
+func (p *parser) parseLoop() (*chunk, error) {
+	loopContext, e := p.parseExpr(true)
+	if e != nil {
+		return nil, e
+	}
 
+	e = p.expectKind(TOKEN_CLOSE)
+	if e != nil {
+		return nil, e
+	}
+
+	loopBody, e := p.parseContent()
+	if e != nil {
+		return nil, e
+	}
+
+	e = p.expectTag("end_loop")
+	if e != nil {
+		return nil, e
+	}
+
+	return newChunkLoop(loopContext, loopBody), nil
+}
+
+// parse a <% with %> ... <% end_with %> structure. "<% with" has already been parsed.
+func (p *parser) parseWith() (*chunk, error) {
+	context, e := p.parseExpr(true)
+	if e != nil {
+		return nil, e
+	}
+
+	e = p.expectKind(TOKEN_CLOSE)
+	if e != nil {
+		return nil, e
+	}
+
+	body, e := p.parseContent()
+	if e != nil {
+		return nil, e
+	}
+
+	e = p.expectTag("end_with")
+	if e != nil {
+		return nil, e
+	}
+
+	return newChunkWith(context, body), nil
+}
+
+func (p *parser) parseRequire() (*chunk, error) {
 	return nil, nil
 }
 
-func (p *parser) parseWith() (chunk, error) {
-	return nil, nil
-}
-
-func (p *parser) parseRequire() (chunk, error) {
-	return nil, nil
-}
-
-func (p *parser) parseTranslation() (chunk, error) {
+func (p *parser) parseTranslation() (*chunk, error) {
 	return nil, nil
 }
 
 // Parse cached block. At this point, template caching is not supported. So we ignore everything in the tag,
 // then parseContent to get everything inside the tag, then expect the closing tag. The chunk we return is just
 // from parseContent.
-func (p *parser) parseCached() (chunk, error) {
+func (p *parser) parseCached() (*chunk, error) {
+	// parse an expression list
+	// parse %>
+	// parse content
+	// parse <% end_cached %>
+	// return chunk for content
 	return nil, nil
+}
+
+// Parse an expression that provides a value. This handles many forms:
+// - string literal
+// - numeric literal
+// - variable reference (possibly nested)
+// - function reference
+// This returns a chunk of type chunkExpr, which itself is a tree of such objects.
+// It will attempt to parse as many tokens as possible to make a valid expression.
+// 'topLevel' should be true on non-nested calls
+func (p *parser) parseExpr(topLevel bool) (*chunk, error) {
+	tk, e := p.scanner.scanToken()
+	if e != nil {
+		return nil, e
+	}
+
+	switch {
+	case tk.kind == TOKEN_NUMBER:
+		return newChunkExprValue(CHUNK_EXPR_NUMBER, tk.value), nil
+
+	case tk.kind == TOKEN_STRING:
+		return newChunkExprValue(CHUNK_EXPR_STRING, tk.value), nil
+
+	case tk.isSym("("):
+		// nested expression
+		v, e := p.parseExpr(false)
+		if e != nil {
+			return nil, e
+		}
+		p.expectSym(")")
+		return v, nil
+
+	case tk.isSym("$"):
+		// property or function to follow, but only valid if topLevel==true
+		return p.parseVariableOrFn()
+
+	case tk.kind == TOKEN_IDENT:
+		// identifier, different cases
+		switch {
+		case tk.value == "not":
+			// not <expr>
+			sub, e := p.parseExpr(false)
+			if e != nil {
+				return nil, e
+			}
+			return newChunkExprValue(CHUNK_EXPR_NOT, sub), nil
+		default:
+			// put the identifier back, and ask to parse a variable
+			p.scanner.putBack(tk)
+			return p.parseVariableOrFn()
+		}
+	}
+
+	return nil, nil
+}
+
+// parse a variable or function. This can include chained references.
+func (p *parser) parseVariableOrFn() (*chunk, error) {
+	tk, e := p.scanner.scanToken()
+	if e != nil {
+		return nil, e
+	}
+	if tk.kind != TOKEN_IDENT {
+		return nil, fmt.Errorf("Expected identifier for a variable or function, got '%s'", tk.printable())
+	}
+
+	// check for open parentheses, this indicates a function call
+	tk2, e := p.scanner.scanToken()
+	if e != nil {
+		return nil, e
+	}
+
+	var params *chunk
+
+	if tk2.isSym("(") {
+		params, e = p.parseExpressionList(true)
+		if e != nil {
+			return nil, e
+		}
+		e = p.expectSym(")")
+		if e != nil {
+			return nil, e
+		}
+	} else {
+		p.scanner.putBack(tk2)
+	}
+
+	// at this point, tk.value is the name; params is nil for a variable, and a chunkBlock for a function, representing parameters
+
+	// check if there is a "."
+	tk3, e := p.scanner.scanToken()
+	if e != nil {
+		return nil, e
+	}
+
+	var chained *chunk
+
+	if tk3.isSym(".") {
+		chained, e = p.parseVariableOrFn()
+		if e != nil {
+			return nil, e
+		}
+	} else {
+		p.scanner.putBack(tk3)
+	}
+
+	if params == nil {
+		// this is a variable definition
+		return newChunkExprVar(tk.value, chained), nil
+	}
+	return newChunkExprFunc(tk.value, params, chained), nil
+}
+
+// parse a comma-delimited list of expressions, returning the values as a CHUNK_BLOCK
+func (p *parser) parseExpressionList(allowEmpty bool) (*chunk, error) {
+	var chunks []*chunk
+
+	// if an empty list is allowed, check for the fact it's empty. Peek at the next token, and
+	// if it is any valid symbol that may appear after an expression list, just return an empty CHUNK_BLOCK.
+	if allowEmpty {
+		tk, e := p.scanner.scanToken()
+		if e != nil {
+			return nil, e
+		}
+		if tk.isSym(")") {
+			return newChunkBlock(chunks), nil
+		} else {
+			p.scanner.putBack(tk)
+		}
+	}
+
+	expr, e := p.parseExpr(false)
+	if e != nil {
+		return nil, e
+	}
+
+	chunks = append(chunks, expr)
+
+	for {
+		// if the next token is a comma, then we need to parse another expression
+		tk, e := p.scanner.scanToken()
+		if e != nil {
+			return nil, e
+		}
+		if !tk.isSym(",") {
+			// not a comma, so put it back, and break
+			p.scanner.putBack(tk)
+			break
+		}
+
+		expr, e := p.parseExpr(false)
+		if e != nil {
+			return nil, e
+		}
+
+		chunks = append(chunks, expr)
+	}
+
+	return newChunkBlock(chunks), nil
 }

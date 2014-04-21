@@ -101,7 +101,7 @@ func (t *token) printable() string {
 // compiledTemplate is just a list of chunks to process in order. Some chunks may contain nested compiledTemplate.
 type compiledTemplate struct {
 	// a compiled template only contains one chunk, which is always a chunkBlock
-	chunk chunk
+	chunk *chunk
 }
 
 func newCompiledTemplate() *compiledTemplate {
