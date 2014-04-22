@@ -6,18 +6,17 @@ Goss is an experimental library to interface Go applications to SilverStripe dat
 
  *	An ORM that reads from SilverStripe databases directly (SS 3+)
  *	Base controller that provides common functions for construction of simple web sites.
+ *	Templating implementation to re-use SilverStripe templates
 
 Typical use cases envisioned for goss are:
 
  *	Construction of web service APIs against the SilverStripe database that need to be very fast. This applies to
  	any component of an installation that may sit parallel to the site itself.
- *	Construction of limited web site front ends that don't require all the features of the SilverStripe framework, but
- 	which will benefit from speed (e.g. constantly changing dynamic data)
+ *	Construction of limited web site front ends that don't require all
+    the features of the SilverStripe framework, but which will benefit from speed (e.g. constantly changing dynamic data)
 
-The motivation for the library is to provide a way to build components within a SilverStripe installation where
-high performance is critical. Rough tests indicate approximately 2 orders of magnitude speed improvement for some
-simple functions implemented in go vs in PHP/SilverStripe on apache. It is not designed to replace the SilverStripe
-framework, and is in fact dependent on the framework.
+The motivation for the library is to provide a way to build components within a SilverStripe installation where high performance is critical. Rough tests indicate approximately 2 orders of magnitude speed improvement for some
+simple functions implemented in go vs in PHP/SilverStripe on apache.
 
 ## Author
 
@@ -45,6 +44,8 @@ Most features of SilverStripe are not implemented in goss. A few likely candidat
  	re-use of business rule logic)
 
 ## Example Usage
+
+NOTE: this section needs to be re-written. The entire mechanism described here has been replaced.
 
 This is a simple annotated website using goss:
 
@@ -231,9 +232,13 @@ And this is what the page-type specific template looks like:
 		{{end}}
 	{{end}}
 
+## Configuration
+
 ## ORM
 
 ## Controllers
+
+NOTE: this section needs to be rewritten. Controllers have been completely refactored.
 
 Goss provides a Controller type which you can use to build your own page-specific controllers. This works quite
 differently from controllers in the SilverStripe framework, and provides some of the functions that are actually
@@ -264,6 +269,41 @@ Some functions provided by Controller include:
  *	func (ctl *BaseController) Path(obj *DataObject, field string) (string, error)
  	This is a helper function that returns a portion of the path to a data object in SiteTree, by concatenating
  	the URLSegments. This is useful in writing link-generation functions on SiteTree objects.
+
+## Templates
+
+The template package implements the SilverStripe templating langu*age. The intention is that templates may be developed that are used by both the SilverStripe host app as well as the goss app. Minor alterations may need to be made for templates that are to work in both environments.
+
+As much as possible, the syntax has been made identical to the SilverStripe templating language.
+
+### Implemented
+
+This section lists features of the SilverStripe templating language that have been implemented. Some of the implementations may vary because of underlying differences in the systems.
+
+ *	Variable substitutions: $foo, {$foo}
+ *	Function substitutions: $foo(args), {$foo(args)}
+ *	<% base_tag %>
+ *	<% if cond %>...<% end_if%> , <% else %> variation
+ *	<% loop expr %>...<% end_loop %>
+ *	<% with expr %>...<% end_with %>
+ *	<% include %>, but not optional binding syntax
+ *	operators: ||, &&, ==, !=, >, >=, <, <=, not
+ *	numeric literals (no decimals)
+ *	string literals (backslashes in strings not handled)
+ *	chained variable and functions, eg $foo.bar, $foo().bar("abc")
+ 
+### Not implemented
+
+ *	$Layout
+ *	Comments
+ *	<% cached %> blocks are parsed and handled correctly semantically, but there is no caching of the fragments, and any expressions in the <% cached %> tag are not evaluated.
+ *	else_if
+ *	<%t ... %>
+ *	<% require ... %>
+ *	<% include %> allows for an optional binding syntax for the included template. This extra syntax is not implemented.
+ *	backslash handling in string literals
+ *	deprecated syntax of using identifiers without $ or double quotes
+ *	requirements injection
 
 ## Revised Notes
 
