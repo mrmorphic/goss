@@ -12,12 +12,14 @@ type scanner struct {
 	// tells the scanner if we are in a template tag or not, which effects how we scan
 	inTemplateTag bool
 
-	// a scanned token that was put back by the parse. Usually nil.
-	unprocessedToken *token
+	// a stack of tokens that have been scanned but put back. The 0th item is the bottom of the stack.
+	// When scanToken is called, if this is not empty the token at the top of the stack (end of list) is
+	// returned.
+	unprocessedStack []*token
 }
 
 func newScanner(s string) *scanner {
-	return &scanner{source: s}
+	return &scanner{source: s, unprocessedStack: make([]*token, 0)}
 }
 
 const (
@@ -27,10 +29,10 @@ const (
 
 // Given a string s, scan 1 token and return it, and the reduced string.
 func (sc *scanner) scanToken() (*token, error) {
-	if sc.unprocessedToken != nil {
-		// if there is a token that was put back, return it again and leave the input stream alone
-		result := sc.unprocessedToken
-		sc.unprocessedToken = nil
+	if ls := len(sc.unprocessedStack); ls > 0 {
+		// if there are tokens that were put back. Return the last added
+		result := sc.unprocessedStack[ls-1]
+		sc.unprocessedStack = sc.unprocessedStack[0 : ls-1]
 		return result, nil
 	}
 
@@ -133,10 +135,18 @@ func (sc *scanner) scanToken() (*token, error) {
 }
 
 func (sc *scanner) putBack(t *token) {
-	if sc.unprocessedToken != nil {
-		panic("Template scanner does not expect to have multiple tokens put back. The parser is misbehaving.")
+	sc.unprocessedStack = append(sc.unprocessedStack, t)
+}
+
+// Get the next token from the stream, put it back and return it. This will leave the input string scanned, but the scanned
+// token in the queue.
+func (sc *scanner) peek() (*token, error) {
+	t, e := sc.scanToken()
+	if e != nil {
+		return nil, e
 	}
-	sc.unprocessedToken = t
+	sc.putBack(t)
+	return t, nil
 }
 
 func (sc *scanner) scanNumericLiteral() (*token, error) {

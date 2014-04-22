@@ -4,6 +4,16 @@ import (
 	"fmt"
 )
 
+var comparisonOperator map[string]bool
+
+func init() {
+	// initialise comparison operators
+	comparisonOperator = make(map[string]bool)
+	for _, op := range []string{"==", "!=", "<", "<=", ">", ">="} {
+		comparisonOperator[op] = true
+	}
+}
+
 type parser struct {
 	scanner *scanner
 }
@@ -26,23 +36,31 @@ func (p *parser) parseSource(source string) (*compiledTemplate, error) {
 	result.chunk = chunk
 
 	// ensure there is no left-over
+	t, e := p.scanner.scanToken()
+	if e != nil {
+		return nil, e
+	}
+	if t.kind != TOKEN_END_SOURCE {
+		return nil, fmt.Errorf("Expected end of template, but got '%s'", t.printable())
+	}
+
 	fmt.Printf("Parsed result: \n%s\n", chunk.printable(0))
 
 	return result, nil
 }
 
-// parseContent parses content, which is broadly a sequence of literals, $xxx and <% %> blocks. It is also
-// value to see TOKEN_END_SOURCE. This is used to parse the top-level, but will stop when it sees something it
+// parseContent parses content, which is broadly a sequence of literals, $xxx and <% %> blocks. It will process input
+// until it sees something it can't handle, which is:
+// - TOKEN_END_OF_SOURCE
+// - any of the "<% end_x %> tags
+// This is used to parse the top-level, but will stop when it sees something it
 // doesn't know, because it is also used to parse nested content.
 func (p *parser) parseContent() (*chunk, error) {
-	fmt.Printf("parseContent\n")
-
 	var chunks []*chunk
 
 loop:
 	for {
 		tk, e := p.scanner.scanToken()
-		fmt.Printf("...tk: %s\n", tk)
 		if e != nil {
 			return nil, e
 		}
@@ -51,14 +69,20 @@ loop:
 		case tk.kind == TOKEN_LITERAL:
 			chunks = append(chunks, newChunkLiteral(tk.value))
 		case tk.kind == TOKEN_OPEN:
-			// parse the content of the tag
-			ch, e := p.parseTag()
+			// look at the next token
+			tk2, e := p.scanner.peek()
 			if e != nil {
 				return nil, e
 			}
 
-			// we expect a TOKEN_CLOSE
-			e = p.expectKind(TOKEN_CLOSE)
+			if tk2.isIdent("end_if") || tk2.isIdent("end_loop") || tk2.isIdent("end_with") || tk2.isIdent("end_cached") {
+				// we've hit a token that we can't process. Put back the start of, and exit.
+				p.scanner.putBack(tk)
+				break loop
+			}
+
+			// parse the content of the tag
+			ch, e := p.parseTag()
 			if e != nil {
 				return nil, e
 			}
@@ -67,8 +91,44 @@ loop:
 		case tk.kind == TOKEN_END_SOURCE:
 			p.scanner.putBack(tk)
 			break loop
-		case tk.isSym("{") || tk.isSym("$"):
+		case tk.isSym("{"):
+			// the scanner only emits this when it sees "{$", and the next token will be "$".
+			tk2, e := p.scanner.scanToken()
+			if e != nil {
+				return nil, e
+			}
+			if !tk2.isSym("$") {
+				return nil, fmt.Errorf("Expected '$' after '{'")
+			}
+
+			// now parse the variable or function
+			ch, e := p.parseVariableOrFn()
+			if e != nil {
+				return nil, e
+			}
+
+			// finally we expect "}"
+			e = p.expectSym("}")
+			if e != nil {
+				return nil, e
+			}
+
+			// here we have to tell the scanner that it is now scanning literals again
+			p.scanner.inTemplateTag = false
+
+			// all is ok, add the variable or function to the list.
+			chunks = append(chunks, ch)
+		case tk.isSym("$"):
+			ch, e := p.parseVariableOrFn()
+			if e != nil {
+				return nil, e
+			}
+			chunks = append(chunks, ch)
 			// variable/function injection
+		default:
+			// if we don't know what to do with something, we're out of here
+			p.scanner.putBack(tk)
+			break loop
 		}
 	}
 
@@ -94,7 +154,22 @@ func (p *parser) expectSym(s string) error {
 		return e
 	}
 	if tk.kind != TOKEN_SYMBOL {
-		return fmt.Errorf("Expected token of kind '%s', got '%s' instead.", TOKEN_SYMBOL, tk.printable())
+		return fmt.Errorf("Expected token of kind '%s (%s)', got '%s' instead.", TOKEN_SYMBOL, s, tk.printable())
+	}
+	if tk.value != s {
+		return fmt.Errorf("Expected symbol '%s', got '%s' instead.", s, tk.printable())
+	}
+	return nil
+}
+
+// read one token, and check that it is a identifier with the required name. Return an error on scanning error, or if the kind doesn't match.
+func (p *parser) expectIdent(s string) error {
+	tk, e := p.scanner.scanToken()
+	if e != nil {
+		return e
+	}
+	if tk.kind != TOKEN_IDENT {
+		return fmt.Errorf("Expected token of kind '%s (%s)', got '%s' instead.", TOKEN_IDENT, s, tk.printable())
 	}
 	if tk.value != s {
 		return fmt.Errorf("Expected symbol '%s', got '%s' instead.", s, tk.printable())
@@ -108,7 +183,7 @@ func (p *parser) expectTag(tag string) error {
 	if e != nil {
 		return e
 	}
-	e = p.expectSym(tag)
+	e = p.expectIdent(tag)
 	if e != nil {
 		return e
 	}
@@ -135,7 +210,10 @@ func (p *parser) parseTag() (*chunk, error) {
 	case tk.isIdent("require"):
 		return p.parseRequire()
 	case tk.isIdent("base_tag"):
-		// nothing else to parse
+		e = p.expectKind(TOKEN_CLOSE)
+		if e != nil {
+			return nil, e
+		}
 		return newChunkBaseTag(), nil
 	case tk.isIdent("t"):
 		return p.parseTranslation()
@@ -171,17 +249,73 @@ func (p *parser) parseInclude() (*chunk, error) {
 
 	// @todo parse the variable bindings afterwards and put these in the chunk as well.
 
+	e = p.expectKind(TOKEN_CLOSE)
+	if e != nil {
+		return nil, e
+	}
+
 	return newChunkInclude(compiled), nil
 }
 
 func (p *parser) parseIf() (*chunk, error) {
 	// parse condition
+	cond, e := p.parseExpr(true)
+	if e != nil {
+		return nil, e
+	}
+
 	// parse %>
+	e = p.expectKind(TOKEN_CLOSE)
+	if e != nil {
+		return nil, e
+	}
+
 	// parse truePart
-	// test for <% else_if %>
-	// test if <% else %> is present
-	// parse <% end_if %>
-	return nil, nil
+	truePart, e := p.parseContent()
+	if e != nil {
+		return nil, e
+	}
+
+	// at this point we expect "<% else_if", "<% else" or "<% end_if", so lets get "<%"" out the way and see what we're dealing with
+	open, _ := p.scanner.peek()
+	e = p.expectKind(TOKEN_OPEN)
+	if e != nil {
+		return nil, e
+	}
+
+	// get the symbol
+	tk, e := p.scanner.scanToken()
+	if e != nil {
+		return nil, e
+	}
+
+	var falsePart *chunk
+
+	switch {
+	case tk.isSym("else_if"):
+		return nil, fmt.Errorf("else_if not implemented yet")
+
+	case tk.isSym("else"):
+		e = p.expectKind(TOKEN_CLOSE)
+		if e != nil {
+			return nil, e
+		}
+
+		falsePart, e = p.parseContent()
+		if e != nil {
+			return nil, e
+		}
+	default:
+		p.scanner.putBack(tk)
+		p.scanner.putBack(open)
+	}
+
+	e = p.expectTag("end_if")
+	if e != nil {
+		return nil, e
+	}
+
+	return newChunkIf(cond, truePart, falsePart), nil
 }
 
 // parse a <% loop %> ... <% end_loop %> structure. "<% loop" has already been parsed.
@@ -247,14 +381,131 @@ func (p *parser) parseTranslation() (*chunk, error) {
 // from parseContent.
 func (p *parser) parseCached() (*chunk, error) {
 	// parse an expression list
+	_, e := p.parseExpressionList(false)
+	if e != nil {
+		return nil, e
+	}
+
 	// parse %>
+	e = p.expectKind(TOKEN_CLOSE)
+	if e != nil {
+		return nil, e
+	}
+
 	// parse content
+	content, e := p.parseContent()
+	if e != nil {
+		return nil, e
+	}
+
 	// parse <% end_cached %>
+	e = p.expectTag("end_cached")
+	if e != nil {
+		return nil, e
+	}
+
 	// return chunk for content
-	return nil, nil
+	return content, nil
 }
 
-// Parse an expression that provides a value. This handles many forms:
+// Parse at least one condition, with || or && separators.
+func (p *parser) parseExpr(topLevel bool) (*chunk, error) {
+	var args []*chunk
+
+	compare, e := p.parseComparison(topLevel)
+	if e != nil {
+		return nil, e
+	}
+	args = append(args, compare)
+
+	// once we see an || or && operator, we need to store it here, as all subsequent
+	// operators must be the same within this parse.
+	var op string
+
+	for {
+		tk, e := p.scanner.scanToken()
+		if e != nil {
+			return nil, e
+		}
+
+		if !tk.isSym("&&") && !tk.isSym("||") {
+			p.scanner.putBack(tk)
+			break
+		}
+
+		// ensure we don't change operators
+		if op != "" && op != tk.value {
+			return nil, fmt.Errorf("Cannot mix || and && in a single expression")
+		}
+		op = tk.value
+
+		// get the post-operator comparison
+		compare, e = p.parseComparison(topLevel)
+		if e != nil {
+			return nil, e
+		}
+		args = append(args, compare)
+	}
+
+	// if only one arg, we'll return that directly, without operator
+	if len(args) == 1 {
+		return args[0], nil
+	}
+
+	kind := CHUNK_EXPR_OR
+	if op == "&&" {
+		kind = CHUNK_EXPR_AND
+	}
+	return newChunkExprNary(kind, args), nil
+}
+
+// Parse a comparison of two terms using ==, !=, <, <=, >, <=
+func (p *parser) parseComparison(topLevel bool) (*chunk, error) {
+	leftTerm, e := p.parseTerm(topLevel)
+	if e != nil {
+		return nil, e
+	}
+
+	tk, e := p.scanner.scanToken()
+	if e != nil {
+		return nil, e
+	}
+
+	if tk.kind != TOKEN_SYMBOL || !comparisonOperator[tk.value] {
+		// there is no comparison, so just return the term
+		p.scanner.putBack(tk)
+		return leftTerm, nil
+	}
+
+	rightTerm, e := p.parseTerm(topLevel)
+	if e != nil {
+		return nil, e
+	}
+
+	var kind chunkKind
+	switch tk.value {
+	case "==":
+		kind = CHUNK_EXPR_EQUAL
+	case "!=":
+		kind = CHUNK_EXPR_NOT_EQUAL
+	case "<":
+		kind = CHUNK_EXPR_LESS
+	case "<=":
+		kind = CHUNK_EXPR_LESS_EQUAL
+	case ">":
+		kind = CHUNK_EXPR_GTR
+	case ">=":
+		kind = CHUNK_EXPR_GTR_EQUAL
+	}
+
+	var args []*chunk
+	args = append(args, leftTerm)
+	args = append(args, rightTerm)
+
+	return newChunkExprNary(kind, args), nil
+}
+
+// Parse an expression term. This handles many forms:
 // - string literal
 // - numeric literal
 // - variable reference (possibly nested)
@@ -262,7 +513,7 @@ func (p *parser) parseCached() (*chunk, error) {
 // This returns a chunk of type chunkExpr, which itself is a tree of such objects.
 // It will attempt to parse as many tokens as possible to make a valid expression.
 // 'topLevel' should be true on non-nested calls
-func (p *parser) parseExpr(topLevel bool) (*chunk, error) {
+func (p *parser) parseTerm(topLevel bool) (*chunk, error) {
 	tk, e := p.scanner.scanToken()
 	if e != nil {
 		return nil, e
@@ -281,7 +532,10 @@ func (p *parser) parseExpr(topLevel bool) (*chunk, error) {
 		if e != nil {
 			return nil, e
 		}
-		p.expectSym(")")
+		e = p.expectSym(")")
+		if e != nil {
+			return nil, e
+		}
 		return v, nil
 
 	case tk.isSym("$"):

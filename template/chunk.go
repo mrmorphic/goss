@@ -7,17 +7,26 @@ import (
 type chunkKind string
 
 const (
-	CHUNK_LITERAL     chunkKind = "chunk_literal"  // literal text to emit
-	CHUNK_BASE_TAG              = "chunk_base_tag" // <% base_tag %> substitution
-	CHUNK_INCLUDE               = "chunk_include"  // process an include file
-	CHUNK_BLOCK                 = "chunk_block"    // a sequence of sub-chunks
-	CHUNK_LOOP                  = "chunk_loop"     // a loop block
-	CHUNK_WITH                  = "chunk_with"     // a with block
-	CHUNK_EXPR_VAR              = "chunk_expr_var"
-	CHUNK_EXPR_FUNC             = "chunk_expr_func"
-	CHUNK_EXPR_NUMBER           = "chunk_expr_number"
-	CHUNK_EXPR_STRING           = "chunk_expr_string"
-	CHUNK_EXPR_NOT              = "chunk_expr_not"
+	CHUNK_LITERAL         chunkKind = "literal"  // literal text to emit
+	CHUNK_BASE_TAG        chunkKind = "base_tag" // <% base_tag %> substitution
+	CHUNK_INCLUDE         chunkKind = "include"  // process an include file
+	CHUNK_BLOCK           chunkKind = "block"    // a sequence of sub-chunks
+	CHUNK_LOOP            chunkKind = "loop"     // a loop block
+	CHUNK_WITH            chunkKind = "with"     // a with block
+	CHUNK_IF              chunkKind = "if"
+	CHUNK_EXPR_VAR        chunkKind = "expr_var"
+	CHUNK_EXPR_FUNC       chunkKind = "expr_func"
+	CHUNK_EXPR_NUMBER     chunkKind = "expr_number"
+	CHUNK_EXPR_STRING     chunkKind = "expr_string"
+	CHUNK_EXPR_NOT        chunkKind = "expr_not"
+	CHUNK_EXPR_OR         chunkKind = "expr_or"
+	CHUNK_EXPR_AND        chunkKind = "expr_and"
+	CHUNK_EXPR_EQUAL      chunkKind = "expr_equal"
+	CHUNK_EXPR_NOT_EQUAL  chunkKind = "expr_not_equal"
+	CHUNK_EXPR_LESS       chunkKind = "expr_less"
+	CHUNK_EXPR_LESS_EQUAL chunkKind = "expr_less_equal"
+	CHUNK_EXPR_GTR        chunkKind = "expr_gtr"
+	CHUNK_EXPR_GTR_EQUAL  chunkKind = "expr_gtr_equal"
 )
 
 type chunk struct {
@@ -51,6 +60,13 @@ func newChunkBlock(chunks []*chunk) *chunk {
 	return r
 }
 
+func newChunkIf(condition *chunk, truePart *chunk, falsePart *chunk) *chunk {
+	r := newChunk(CHUNK_IF)
+	r.m["condition"] = condition
+	r.m["truePart"] = truePart
+	r.m["falsePart"] = falsePart
+	return r
+}
 func newChunkLoop(context *chunk, body *chunk) *chunk {
 	r := newChunk(CHUNK_LOOP)
 	r.m["context"] = context
@@ -89,17 +105,40 @@ func newChunkExprValue(kind chunkKind, value interface{}) *chunk {
 	return r
 }
 
+func newChunkExprNary(kind chunkKind, args []*chunk) *chunk {
+	r := newChunk(kind)
+	r.m["args"] = args
+	return r
+}
+
 func (c *chunk) printable(nestLevel int) string {
 	result := ""
 	s := "                                "[0:nestLevel]
 	result += fmt.Sprintf("%s%s:\n", s, c.kind)
 	for key, value := range c.m {
 		result += s + " " + key + ":"
+
 		nested, ok := value.(*chunk)
 		if ok {
-			result += nested.printable(nestLevel + 1)
+			// the value is a *chunk, so we can nest on it as long as it's not null (which is valid for some cases)
+			if nested == nil {
+				result += "nil"
+			} else {
+				result += "\n " + nested.printable(nestLevel+1)
+			}
 		} else {
-			result += fmt.Sprintf(" %s%s", s, value)
+			list, ok := value.([]*chunk)
+			if ok && list != nil {
+				// it's a list of chunks
+				result += "\n" + s + " ["
+				for _, item := range list {
+					result += "\n " + item.printable(nestLevel+1)
+				}
+				result += "\n" + s + " ]\n"
+			} else {
+				// could be anything else, just use Sprintf.
+				result += fmt.Sprintf(" %s%s", s, value)
+			}
 		}
 	}
 	return result

@@ -38,11 +38,20 @@ func TestVariants(t *testing.T) {
 		"abc <% include Footer %> xyz",
 		"<% if $MyDinner==\"quiche\" && $YourDinner==\"kipper\" %>some text<% end_if %>",
 		"<% if not $DinnerInOven %>I'm going out for dinner tonight.<% end_if %>",
-		"<% if $Number>=\"5\" && $Number<=\"10\" %>",
+		"<% if $Number>=\"5\" && $Number<=\"10\" %>foo<% end_if %>",
 		"abc{$foo}xyz",
 	}
 
 	for _, s := range sources {
+		fmt.Printf("scanning source: %s\n", s)
+		scanner := newScanner(s)
+		for {
+			tk, _ := scanner.scanToken()
+			fmt.Printf("...%s\n", tk.printable())
+			if tk.kind == TOKEN_END_SOURCE {
+				break
+			}
+		}
 		fmt.Printf("parsing source: %s\n", s)
 		_, e := newParser().parseSource(s)
 		if e != nil {
