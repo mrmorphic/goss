@@ -59,45 +59,6 @@ type DataLocator interface {
 // - context stack. with, loops, include explicitly push things on the stack. renames with include.
 // - cached blocks introduce no new semantics, and can be ignored.
 
-type tokenKind string
-
-const (
-	TOKEN_END_SOURCE tokenKind = "{end source}" // end of stream
-	TOKEN_LITERAL              = "literal"      // literal value that can be emitted as-is
-	TOKEN_SYMBOL               = "symbol"       // a symbol of some kind. Like a literal, except it is something that has meaning to the template
-	TOKEN_OPEN                 = "open"         // open <%
-	TOKEN_CLOSE                = "close"        // close %>
-	TOKEN_IDENT                = "ident"        // identifier, sequence of letters, digits and _, starting with letter or _
-	TOKEN_NUMBER               = "number"       // sequence of digits
-	TOKEN_STRING               = "string"       // string literal, value excludes the double quotes, and \ chars are processed
-)
-
-type token struct {
-	kind  tokenKind
-	value string
-}
-
-func newToken(kind tokenKind, s string) *token {
-	return &token{kind: kind, value: s}
-}
-
-// isSym returns true if the token is a symbol that is the same as s
-func (t *token) isSym(s string) bool {
-	return t.kind == TOKEN_SYMBOL && t.value == s
-}
-
-func (t *token) isIdent(s string) bool {
-	return t.kind == TOKEN_IDENT && t.value == s
-}
-
-func (t *token) printable() string {
-	result := string(t.kind)
-	if t.value != "" {
-		result += " (" + t.value + ")"
-	}
-	return result
-}
-
 // compiledTemplate is just a list of chunks to process in order. Some chunks may contain nested compiledTemplate.
 type compiledTemplate struct {
 	// a compiled template only contains one chunk, which is always a chunkBlock
