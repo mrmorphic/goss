@@ -11,8 +11,6 @@ const (
 	TOKEN_END_SOURCE tokenKind = "{end source}" // end of stream
 	TOKEN_LITERAL              = "literal"      // literal value that can be emitted as-is
 	TOKEN_SYMBOL               = "symbol"       // a symbol of some kind. Like a literal, except it is something that has meaning to the template
-	TOKEN_OPEN                 = "open"         // open <%
-	TOKEN_CLOSE                = "close"        // close %>
 	TOKEN_IDENT                = "ident"        // identifier, sequence of letters, digits and _, starting with letter or _
 	TOKEN_NUMBER               = "number"       // sequence of digits
 	TOKEN_STRING               = "string"       // string literal, value excludes the double quotes, and \ chars are processed
@@ -89,7 +87,7 @@ func (sc *scanner) scanToken() (*token, error) {
 				sc.inTemplateTag = false
 				sc.source = sc.source[2:]
 				lit += "%>"
-				return newToken(TOKEN_CLOSE, "", lit, r), nil
+				return newToken(TOKEN_SYMBOL, "%>", lit, r), nil
 			case sc.source[0] == ' ':
 				// space; ignore while in template
 				sc.source = sc.source[1:]
@@ -136,7 +134,7 @@ func (sc *scanner) scanToken() (*token, error) {
 				sc.inTemplateTag = true
 				sc.source = sc.source[2:]
 				lit += "<%"
-				return newToken(TOKEN_OPEN, "", lit, r), nil
+				return newToken(TOKEN_SYMBOL, "<%", lit, r), nil
 			case ls >= 2 && sc.source[0] == '$' && sc.source[0:2] != "$$":
 				// start of identifier in token
 				sc.inTemplateTag = true

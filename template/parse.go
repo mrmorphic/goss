@@ -68,7 +68,7 @@ loop:
 		switch {
 		case tk.kind == TOKEN_LITERAL:
 			chunks = append(chunks, newChunkLiteral(tk.value))
-		case tk.kind == TOKEN_OPEN:
+		case tk.isSym("<%"):
 			// look at the next token
 			tk2, e := p.scanner.peek()
 			if e != nil {
@@ -180,9 +180,9 @@ func (p *parser) expectIdent(s string) error {
 	return nil
 }
 
-// Expect 3 tokens in a sequence: TOKEN_OPEN, TOKEN_SYMBOL (matching tag), TOKEN_CLOSE
+// Expect 3 tokens in a sequence: TOKEN_SYMBOL (<%), TOKEN_IDENT (matching tag), TOKEN_SYMBOL (%>)
 func (p *parser) expectTag(tag string) error {
-	e := p.expectKind(TOKEN_OPEN)
+	e := p.expectSym("<%")
 	if e != nil {
 		return e
 	}
@@ -190,7 +190,7 @@ func (p *parser) expectTag(tag string) error {
 	if e != nil {
 		return e
 	}
-	return p.expectKind(TOKEN_CLOSE)
+	return p.expectSym("%>")
 }
 
 // parse the what is in between <% and %>, but not including those tokens. This is largely a dispatcher for what is in the tag.
@@ -213,7 +213,7 @@ func (p *parser) parseTag() (*chunk, error) {
 	case tk.isIdent("require"):
 		return p.parseRequire()
 	case tk.isIdent("base_tag"):
-		e = p.expectKind(TOKEN_CLOSE)
+		e = p.expectSym("%>")
 		if e != nil {
 			return nil, e
 		}
@@ -252,7 +252,7 @@ func (p *parser) parseInclude() (*chunk, error) {
 
 	// @todo parse the variable bindings afterwards and put these in the chunk as well.
 
-	e = p.expectKind(TOKEN_CLOSE)
+	e = p.expectSym("%>")
 	if e != nil {
 		return nil, e
 	}
@@ -268,7 +268,7 @@ func (p *parser) parseIf() (*chunk, error) {
 	}
 
 	// parse %>
-	e = p.expectKind(TOKEN_CLOSE)
+	e = p.expectSym("%>")
 	if e != nil {
 		return nil, e
 	}
@@ -281,7 +281,7 @@ func (p *parser) parseIf() (*chunk, error) {
 
 	// at this point we expect "<% else_if", "<% else" or "<% end_if", so lets get "<%"" out the way and see what we're dealing with
 	open, _ := p.scanner.peek()
-	e = p.expectKind(TOKEN_OPEN)
+	e = p.expectSym("<%")
 	if e != nil {
 		return nil, e
 	}
@@ -299,7 +299,7 @@ func (p *parser) parseIf() (*chunk, error) {
 		return nil, fmt.Errorf("else_if not implemented yet")
 
 	case tk.isIdent("else"):
-		e = p.expectKind(TOKEN_CLOSE)
+		e = p.expectSym("%>")
 		if e != nil {
 			return nil, e
 		}
@@ -328,7 +328,7 @@ func (p *parser) parseLoop() (*chunk, error) {
 		return nil, e
 	}
 
-	e = p.expectKind(TOKEN_CLOSE)
+	e = p.expectSym("%>")
 	if e != nil {
 		return nil, e
 	}
@@ -353,7 +353,7 @@ func (p *parser) parseWith() (*chunk, error) {
 		return nil, e
 	}
 
-	e = p.expectKind(TOKEN_CLOSE)
+	e = p.expectSym("%>")
 	if e != nil {
 		return nil, e
 	}
@@ -390,7 +390,7 @@ func (p *parser) parseCached() (*chunk, error) {
 	}
 
 	// parse %>
-	e = p.expectKind(TOKEN_CLOSE)
+	e = p.expectSym("%>")
 	if e != nil {
 		return nil, e
 	}
