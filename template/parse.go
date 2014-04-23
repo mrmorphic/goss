@@ -75,7 +75,7 @@ loop:
 				return nil, e
 			}
 
-			if tk2.isIdent("end_if") || tk2.isIdent("end_loop") || tk2.isIdent("end_with") || tk2.isIdent("end_cached") {
+			if tk2.isIdent("end_if") || tk2.isIdent("end_loop") || tk2.isIdent("end_with") || tk2.isIdent("end_cached") || tk2.isIdent("else") {
 				// we've hit a token that we can't process. Put back the start of, and exit.
 				p.scanner.putBack(tk)
 				break loop
