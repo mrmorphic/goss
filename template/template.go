@@ -75,7 +75,10 @@ var compiledTemplates map[string]*compiledTemplate
 // writer. 'templates' is an array of SilverStripe templates minus the ".ss" extension. If there is one template,
 // it is assumed to be in the base templates folder. If two are present, the first is the base template, the
 // second is the $Layout template.
-func RenderWith(w http.ResponseWriter, templates []string, locator DataLocator) error {
+func RenderWith(w http.ResponseWriter, templates []string, context interface{}, locator DataLocator) error {
+	if locator == nil {
+		locator = NewDefaultLocator()
+	}
 	// make templates relative to templates folder
 	if len(templates) > 1 {
 		templates[1] = "Layout/" + templates[1]
@@ -83,8 +86,10 @@ func RenderWith(w http.ResponseWriter, templates []string, locator DataLocator) 
 
 	// corresponding compiled templates will go in here for execution.
 	var compiled []*compiledTemplate
+	first := true
 	for _, t := range templates {
-		template, e := compileTemplate(t)
+		template, e := compileTemplate(t, first)
+		first = false
 		if e != nil {
 			return e
 		}
@@ -92,7 +97,7 @@ func RenderWith(w http.ResponseWriter, templates []string, locator DataLocator) 
 	}
 
 	// execute the template using the data locator
-	r, e := executeTemplate(compiled, locator)
+	r, e := executeTemplate(compiled, context, locator)
 	if e != nil {
 		return e
 	}
@@ -102,15 +107,15 @@ func RenderWith(w http.ResponseWriter, templates []string, locator DataLocator) 
 	return e
 }
 
-func executeTemplate(templates []*compiledTemplate, locator DataLocator) ([]byte, error) {
-	exec := newExecuter(locator)
+func executeTemplate(templates []*compiledTemplate, context interface{}, locator DataLocator) ([]byte, error) {
+	exec := newExecuter(templates, context, locator)
 	return exec.renderChunk(templates[0].chunk)
 }
 
 // compileTemplate takes a template by path (relative to templates folder) and compiles it into a compiledTemplate.
 // If there is a parse error, that is returned. If the template is already in compiledTemplates, the pre-compiled version
 // is returned. Otherwise it is added to compiledTemplates as well
-func compileTemplate(path string) (*compiledTemplate, error) {
+func compileTemplate(path string, mainTemplate bool) (*compiledTemplate, error) {
 	// Get it from cache if it's there
 	result := compiledTemplates[path]
 	if result != nil {
@@ -126,7 +131,7 @@ func compileTemplate(path string) (*compiledTemplate, error) {
 	// convert the returned []byte to a string, so that the parsing will handle UTF8 characters.
 	source := string(s)
 
-	result, e = newParser().parseSource(source)
+	result, e = newParser().parseSource(source, mainTemplate)
 	if e != nil {
 		return nil, e
 	}

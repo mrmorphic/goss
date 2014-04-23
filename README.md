@@ -339,15 +339,16 @@ This section lists features of the SilverStripe templating language that have be
  *	numeric literals (no decimals)
  *	string literals (backslashes in strings not handled)
  *	chained variable and functions, eg $foo.bar, $foo().bar("abc")
+ *	main templates and main/layout arrangements, $Layout
  
 ### Not implemented
 
 The following are not implemented. They are listed in approximate priority order for implementaton.
 
- *	$Layout
  *	Comments
  *	else_if
  *	<% require ... %>
+ *	\$var
  *	requirements injection
  *	shortcode handling
  *	backslash handling in string literals

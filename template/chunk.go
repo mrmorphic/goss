@@ -14,6 +14,7 @@ const (
 	CHUNK_LOOP            chunkKind = "loop"     // a loop block
 	CHUNK_WITH            chunkKind = "with"     // a with block
 	CHUNK_IF              chunkKind = "if"
+	CHUNK_LAYOUT          chunkKind = "layout"
 	CHUNK_EXPR_VARFUNC    chunkKind = "expr_varfunc"
 	CHUNK_EXPR_NUMBER     chunkKind = "expr_number"
 	CHUNK_EXPR_STRING     chunkKind = "expr_string"

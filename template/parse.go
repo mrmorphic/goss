@@ -15,7 +15,8 @@ func init() {
 }
 
 type parser struct {
-	scanner *scanner
+	scanner      *scanner
+	mainTemplate bool
 }
 
 func newParser() *parser {
@@ -23,8 +24,9 @@ func newParser() *parser {
 }
 
 // parseSource converts the source of a template into a compiled template object. The approach taken is to repetitively
-// reduce the source string into chunks.
-func (p *parser) parseSource(source string) (*compiledTemplate, error) {
+// reduce the source string into a tree of chunks, with the template being a single chunk at the top.
+func (p *parser) parseSource(source string, mainTemplate bool) (*compiledTemplate, error) {
+	p.mainTemplate = mainTemplate
 	p.scanner = newScanner(source)
 	result := newCompiledTemplate()
 
@@ -244,7 +246,7 @@ func (p *parser) parseInclude() (*chunk, error) {
 	// parse the included file
 	path := configuration.includesPath + tk.value
 	fmt.Printf("requesting include file %s\n", path)
-	compiled, e := compileTemplate(path)
+	compiled, e := compileTemplate(path, false)
 
 	if e != nil {
 		return nil, fmt.Errorf("In include file %s: %s", path, e)
@@ -613,6 +615,11 @@ func (p *parser) parseVariableOrFn() (*chunk, error) {
 		}
 	} else {
 		p.scanner.putBack(tk3)
+	}
+
+	// $Layout is a special case. It's just an empty chunk.
+	if tk.value == "Layout" && p.mainTemplate {
+		return newChunk(CHUNK_LAYOUT), nil
 	}
 
 	return newChunkExprVarFunc(tk.value, params, chained), nil

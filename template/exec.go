@@ -7,12 +7,20 @@ import (
 )
 
 type executer struct {
+	// context is handled by a stack. The bottom of the stack is index 0. Expressions are evaluated in the context
+	// of the top of the stack.
 	contextStack []interface{}
-	locator      DataLocator
+
+	// All the templates. If there is 1, it is a main template. If there are 2, the first is the main template, and the second
+	// is the layout template, used to substitute $Layout.
+	templates []*compiledTemplate
+
+	// The locator for symbol lookups
+	locator DataLocator
 }
 
-func newExecuter(context interface{}) *executer {
-	exec := &executer{contextStack: make([]interface{}, 0), locator: newDefaultLocator()}
+func newExecuter(templates []*compiledTemplate, context interface{}, locator DataLocator) *executer {
+	exec := &executer{contextStack: make([]interface{}, 0), templates: templates, locator: locator}
 	exec.push(context)
 	return exec
 }
@@ -54,6 +62,8 @@ func (exec *executer) renderChunk(chunk *chunk) ([]byte, error) {
 	case CHUNK_WITH:
 	case CHUNK_IF:
 		return exec.renderChunkIf(chunk)
+	case CHUNK_LAYOUT:
+		return exec.renderChunkLayout(chunk)
 	case CHUNK_EXPR_VARFUNC:
 		return exec.renderChunkVarFunc(chunk)
 	case CHUNK_EXPR_NUMBER:
@@ -118,6 +128,17 @@ func (exec *executer) renderChunkIf(ch *chunk) ([]byte, error) {
 		return []byte{}, nil
 	}
 	return exec.renderChunk(render.(*chunk))
+}
+
+// renderChunkLayout handles injection of $Layout in a main template.
+func (exec *executer) renderChunkLayout(ch *chunk) ([]byte, error) {
+	if len(exec.templates) < 2 {
+		// there is no layout template. Treat it like a non-existent variable and render nothing.
+		return []byte{}, nil
+	}
+
+	// Just render the layout template
+	return exec.renderChunk(exec.templates[1].chunk)
 }
 
 // evalBlock evaluates a list of expressions in a block, which themselves are *chunk values. These
