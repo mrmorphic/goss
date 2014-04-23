@@ -103,7 +103,8 @@ func RenderWith(w http.ResponseWriter, templates []string, locator DataLocator) 
 }
 
 func executeTemplate(templates []*compiledTemplate, locator DataLocator) ([]byte, error) {
-	return []byte("executeTemplate reporting for duty"), nil
+	exec := newExecuter(locator)
+	return exec.renderChunk(templates[0].chunk)
 }
 
 // compileTemplate takes a template by path (relative to templates folder) and compiles it into a compiledTemplate.

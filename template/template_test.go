@@ -60,3 +60,43 @@ func TestVariants(t *testing.T) {
 		}
 	}
 }
+
+func TestExec(t *testing.T) {
+	conf, e := config.ReadFromFile("template_test_config.json")
+	if e != nil {
+		t.Error(e.Error())
+		return
+	}
+
+	// Give goss the configuration object.
+	e = goss.SetConfig(conf)
+	if e != nil {
+		t.Error(e.Error())
+		return
+	}
+
+	source := "this is some markup for $name, with gratuitous nested var: $parent.child"
+	compiled, e := newParser().parseSource(source)
+
+	if e != nil {
+		t.Error(e.Error())
+		return
+	}
+
+	context := make(map[string]interface{})
+	context["foo"] = "bar"
+	context["name"] = "mickey mouse"
+	sub := make(map[string]interface{})
+	sub["child"] = "foobar!"
+	context["parent"] = sub
+
+	// evaluate it
+	exec := newExecuter(context)
+	bytes, e := exec.renderChunk(compiled.chunk)
+
+	if e != nil {
+		t.Error(e.Error())
+	}
+
+	fmt.Printf("bytes are: %s\n", bytes)
+}
