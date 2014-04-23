@@ -75,7 +75,8 @@ func TestExec(t *testing.T) {
 		return
 	}
 
-	source := "this is some markup for $name, with gratuitous nested var: $parent.child"
+	source := `this is some markup for $name, with gratuitous nested var: {$parent.child}. $function1(name)  $function0
+	<%if v1==v2 %>rhubarb equal bananas<% else %>of course a banana is not rhubarb.<% end_if %>  we like food`
 	compiled, e := newParser().parseSource(source)
 
 	if e != nil {
@@ -89,6 +90,14 @@ func TestExec(t *testing.T) {
 	sub := make(map[string]interface{})
 	sub["child"] = "foobar!"
 	context["parent"] = sub
+	context["function0"] = func() string {
+		return "hey, function with zero parameters"
+	}
+	context["function1"] = func(s string) string {
+		return "hello '" + s + "' from function 1!"
+	}
+	context["v1"] = "rhubarb"
+	context["v1"] = "bananas"
 
 	// evaluate it
 	exec := newExecuter(context)
