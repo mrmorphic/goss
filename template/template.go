@@ -6,10 +6,9 @@ import (
 )
 
 // DataLocator is any type that can be used to look up a symbol and return a value. If the item appears
-// to be a function, args a populated, but it may be a function with no arguments. Any return value will be
-// converted to a string using fmt.Sprintf.
+// to be a function, args a populated, but it may be a function with no arguments.
 type DataLocator interface {
-	Locate(name string, args []interface{}) interface{}
+	Locate(context interface{}, name string, args []interface{}) (interface{}, error)
 }
 
 // syntax to consider:
