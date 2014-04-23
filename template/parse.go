@@ -295,10 +295,10 @@ func (p *parser) parseIf() (*chunk, error) {
 	var falsePart *chunk
 
 	switch {
-	case tk.isSym("else_if"):
+	case tk.isIdent("else_if"):
 		return nil, fmt.Errorf("else_if not implemented yet")
 
-	case tk.isSym("else"):
+	case tk.isIdent("else"):
 		e = p.expectKind(TOKEN_CLOSE)
 		if e != nil {
 			return nil, e
