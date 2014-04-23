@@ -130,6 +130,24 @@ func (sc *scanner) scanToken() (*token, error) {
 			}
 		} else {
 			switch {
+			case ls >= 4 && sc.source[0:4] == "<%--":
+				// comment. scan until we find --%>
+				lit += "<%--"
+				sc.source = sc.source[4:]
+				for {
+					lsr := len(sc.source)
+					if lsr < 4 {
+						return nil, errors.New("Unterminated <%-- comment")
+					}
+					if sc.source[0:4] == "--%>" {
+						lit += "--%>"
+						sc.source = sc.source[4:]
+						break
+					}
+
+					lit += sc.source[0:1]
+					sc.source = sc.source[1:]
+				}
 			case ls >= 2 && sc.source[0:2] == "<%":
 				sc.inTemplateTag = true
 				sc.source = sc.source[2:]

@@ -152,3 +152,39 @@ func TestLayout(t *testing.T) {
 		t.Errorf("main/layout response was not expected: %s", capture.response)
 	}
 }
+
+func TestComment(t *testing.T) {
+	validSources := make(map[string]string)
+	validSources["abc<%-- comment --%>def"] = "abcdef"
+	validSources["abc<%-- comment --%>"] = "abc"
+	validSources["<%-- comment --%>def"] = "def"
+	validSources[`abc<%-- multiline
+	comment --%>def`] = "abcdef"
+
+	context := make(map[string]interface{})
+
+	for source, result := range validSources {
+		compiled, e := newParser().parseSource(source, true)
+		if e != nil {
+			t.Errorf("Unexpected parse error: %s [in source: %s]", e, source)
+			return
+		}
+		exec := newExecuter([]*compiledTemplate{compiled}, context, NewDefaultLocator())
+		bytes, e := exec.renderChunk(compiled.chunk)
+
+		if e != nil {
+			t.Errorf("Unexpected exec error: %s [in source: %s]", e, source)
+			return
+		}
+
+		if string(bytes) != result {
+			t.Errorf("Unexpected result: %s [in source: %s]", bytes, source)
+		}
+	}
+
+	// now test for failure parsing an unclosed comment
+	_, e := newParser().parseSource("abc<%-- comment", true)
+	if e == nil {
+		t.Error("Expected error about unterminated comment, didn't get an error")
+	}
+}

@@ -328,8 +328,8 @@ As much as possible, the syntax has been made identical to the SilverStripe temp
 
 This section lists features of the SilverStripe templating language that have been implemented. Some of the implementations may vary because of underlying differences in the systems.
 
- *	Variable substitutions: $foo, {$foo}
- *	Function substitutions: $foo(args), {$foo(args)}, $foo(arg1, arg2)
+ *	variable substitutions: $foo, {$foo}
+ *	function substitutions: $foo(args), {$foo(args)}, $foo(arg1, arg2)
  *	<% base_tag %>
  *	<% if cond %>...<% end_if%> , <% else %> variation
  *	<% loop expr %>...<% end_loop %>
@@ -340,12 +340,12 @@ This section lists features of the SilverStripe templating language that have be
  *	string literals (backslashes in strings not handled)
  *	chained variable and functions, eg $foo.bar, $foo().bar("abc")
  *	main templates and main/layout arrangements, $Layout
+ *	comments
  
 ### Not implemented
 
 The following are not implemented. They are listed in approximate priority order for implementaton.
 
- *	Comments
  *	else_if
  *	<% require ... %>
  *	\$var
