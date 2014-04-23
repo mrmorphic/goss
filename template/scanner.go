@@ -21,10 +21,19 @@ const (
 type token struct {
 	kind  tokenKind
 	value string
+
+	// this contains the characters scanned for the token. putBack will put this back on the start
+	// of the input stream. This is required because when we parse $x in a template, we have to scan
+	// ahead to detect "." or "(", but these are interpreted with inTemplateTag true. Anything else that
+	// might follow the name should be interpreted as a literal instead, so we need to re-interpret.
+	restoreSource string
+
+	// restore state at the point at which we started scanning this token
+	restoreInTemplateTag bool
 }
 
-func newToken(kind tokenKind, s string) *token {
-	return &token{kind: kind, value: s}
+func newToken(kind tokenKind, s string, lit string, r bool) *token {
+	return &token{kind: kind, value: s, restoreSource: lit, restoreInTemplateTag: r}
 }
 
 // isSym returns true if the token is a symbol that is the same as s
@@ -41,6 +50,7 @@ func (t *token) printable() string {
 	if t.value != "" {
 		result += " (" + t.value + ")"
 	}
+	result += " [" + t.restoreSource + "]"
 	return result
 }
 
@@ -50,15 +60,10 @@ type scanner struct {
 
 	// tells the scanner if we are in a template tag or not, which effects how we scan
 	inTemplateTag bool
-
-	// a stack of tokens that have been scanned but put back. The 0th item is the bottom of the stack.
-	// When scanToken is called, if this is not empty the token at the top of the stack (end of list) is
-	// returned.
-	unprocessedStack []*token
 }
 
 func newScanner(s string) *scanner {
-	return &scanner{source: s, unprocessedStack: make([]*token, 0)}
+	return &scanner{source: s}
 }
 
 const (
@@ -68,17 +73,12 @@ const (
 
 // Given a string s, scan 1 token and return it, and the reduced string.
 func (sc *scanner) scanToken() (*token, error) {
-	if ls := len(sc.unprocessedStack); ls > 0 {
-		// if there are tokens that were put back. Return the last added
-		result := sc.unprocessedStack[ls-1]
-		sc.unprocessedStack = sc.unprocessedStack[0 : ls-1]
-		return result, nil
-	}
-
+	lit := ""
+	r := sc.inTemplateTag
 	for {
 		// end of input
 		if len(sc.source) == 0 {
-			return newToken(TOKEN_END_SOURCE, ""), nil
+			return newToken(TOKEN_END_SOURCE, "", "", r), nil
 		}
 
 		var ls = len(sc.source)
@@ -88,10 +88,12 @@ func (sc *scanner) scanToken() (*token, error) {
 			case ls >= 2 && sc.source[0:2] == "%>":
 				sc.inTemplateTag = false
 				sc.source = sc.source[2:]
-				return newToken(TOKEN_CLOSE, ""), nil
+				lit += "%>"
+				return newToken(TOKEN_CLOSE, "", lit, r), nil
 			case sc.source[0] == ' ':
 				// space; ignore while in template
 				sc.source = sc.source[1:]
+				lit += " "
 			case strings.Contains(letters+"_", sc.source[0:1]):
 				// identifier
 				ident := ""
@@ -106,44 +108,49 @@ func (sc *scanner) scanToken() (*token, error) {
 					ident += sc.source[0:1]
 					sc.source = sc.source[1:]
 				}
-				return newToken(TOKEN_IDENT, ident), nil
+				lit += ident
+				return newToken(TOKEN_IDENT, ident, lit, r), nil
 
 			case strings.Contains(digits, sc.source[0:1]):
-				return sc.scanNumericLiteral()
+				return sc.scanNumericLiteral(lit, r)
 			case sc.source[0] == '"':
-				return sc.scanStringLiteral()
-
+				return sc.scanStringLiteral(lit, r)
 			default:
 				if ls >= 2 {
 					// look for 2-char operators
 					t := sc.source[0:2]
 					if t == "==" || t == "!=" || t == ">=" || t == "<=" || t == "&&" || t == "||" {
 						sc.source = sc.source[2:]
-						return newToken(TOKEN_SYMBOL, t), nil
+						lit += t
+						return newToken(TOKEN_SYMBOL, t, lit, r), nil
 					}
 				}
 				t := sc.source[0:1]
 				sc.source = sc.source[1:]
-				return newToken(TOKEN_SYMBOL, t), nil
+				lit += t
+				return newToken(TOKEN_SYMBOL, t, lit, r), nil
 			}
 		} else {
 			switch {
 			case ls >= 2 && sc.source[0:2] == "<%":
 				sc.inTemplateTag = true
 				sc.source = sc.source[2:]
-				return newToken(TOKEN_OPEN, ""), nil
+				lit += "<%"
+				return newToken(TOKEN_OPEN, "", lit, r), nil
 			case ls >= 2 && sc.source[0] == '$' && sc.source[0:2] != "$$":
 				// start of identifier in token
 				sc.inTemplateTag = true
 				sc.source = sc.source[1:]
-				return newToken(TOKEN_SYMBOL, "$"), nil
+				lit += "$"
+				return newToken(TOKEN_SYMBOL, "$", lit, r), nil
 			case ls >= 2 && sc.source[0:2] == "{$":
 				// special case {$something}. We return "{" as a symbol here, and the next token will be the symbol $. The parse will have to work it out
 				sc.source = sc.source[1:]
-				return newToken(TOKEN_SYMBOL, "{"), nil
+				lit += "{"
+				return newToken(TOKEN_SYMBOL, "{", lit, r), nil
 			default:
 				// eat chars until we see the potential start
-				lit := ""
+				literal := ""
 				for {
 					lsr := len(sc.source)
 					if lsr == 0 {
@@ -156,7 +163,8 @@ func (sc *scanner) scanToken() (*token, error) {
 					if lsr >= 1 && sc.source[0] == '$' {
 						// if it's $$, copy the first $ over, and when we break we'll copy the second $.
 						if lsr >= 2 && sc.source[0:2] == "$$" {
-							lit += string(sc.source[0])
+							literal += string(sc.source[0])
+							lit += "$$"
 							sc.source = sc.source[1:]
 						} else {
 							break
@@ -164,17 +172,19 @@ func (sc *scanner) scanToken() (*token, error) {
 					}
 
 					// just copy the char over
+					literal += string(sc.source[0])
 					lit += string(sc.source[0])
 					sc.source = sc.source[1:]
 				}
-				return newToken(TOKEN_LITERAL, lit), nil
+				return newToken(TOKEN_LITERAL, literal, lit, r), nil
 			}
 		}
 	}
 }
 
 func (sc *scanner) putBack(t *token) {
-	sc.unprocessedStack = append(sc.unprocessedStack, t)
+	sc.source = t.restoreSource + sc.source
+	sc.inTemplateTag = t.restoreInTemplateTag
 }
 
 // Get the next token from the stream, put it back and return it. This will leave the input string scanned, but the scanned
@@ -188,7 +198,7 @@ func (sc *scanner) peek() (*token, error) {
 	return t, nil
 }
 
-func (sc *scanner) scanNumericLiteral() (*token, error) {
+func (sc *scanner) scanNumericLiteral(lit string, r bool) (*token, error) {
 	num := ""
 	for {
 		lsr := len(sc.source)
@@ -198,14 +208,16 @@ func (sc *scanner) scanNumericLiteral() (*token, error) {
 		num += sc.source[0:1]
 		sc.source = sc.source[1:]
 	}
-	return newToken(TOKEN_NUMBER, num), nil
+	lit += num
+	return newToken(TOKEN_NUMBER, num, lit, r), nil
 }
 
 // @todo handle backquote within the literal, including \"
-func (sc *scanner) scanStringLiteral() (*token, error) {
+func (sc *scanner) scanStringLiteral(lit string, r bool) (*token, error) {
 	// string literal
 	str := ""
 	sc.source = sc.source[1:]
+	lit += "\""
 	for {
 		lsr := len(sc.source)
 		if lsr == 0 {
@@ -215,11 +227,13 @@ func (sc *scanner) scanStringLiteral() (*token, error) {
 
 		if sc.source[0] == '"' {
 			sc.source = sc.source[1:] // drop the trailing quotes
+			lit += "\""
 			break
 		}
 
 		str += sc.source[0:1]
+		lit += sc.source[0:1]
 		sc.source = sc.source[1:]
 	}
-	return newToken(TOKEN_STRING, str), nil
+	return newToken(TOKEN_STRING, str, lit, r), nil
 }
