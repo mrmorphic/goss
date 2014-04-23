@@ -2,7 +2,7 @@
 
 ## Overview
 
-Goss is an experimental library to interface Go applications to SilverStripe databases. Key features are:
+Goss is an experimental library to interface Go applications to SilverStripe applications. Key features are:
 
  *	An ORM that reads from SilverStripe databases directly (SS 3+)
  *	Base controller that provides common functions for construction of simple web sites.
@@ -10,13 +10,21 @@ Goss is an experimental library to interface Go applications to SilverStripe dat
 
 Typical use cases envisioned for goss are:
 
- *	Construction of web service APIs against the SilverStripe database that need to be very fast. This applies to
- 	any component of an installation that may sit parallel to the site itself.
+ *	Construction of web service APIs against the SilverStripe database that
+	need to be very fast.
  *	Construction of limited web site front ends that don't require all
     the features of the SilverStripe framework, but which will benefit from speed (e.g. constantly changing dynamic data)
 
 The motivation for the library is to provide a way to build components within a SilverStripe installation where high performance is critical. Rough tests indicate approximately 2 orders of magnitude speed improvement for some
 simple functions implemented in go vs in PHP/SilverStripe on apache.
+
+goss has a number of sub-packages to implement various components. While these components are designed to work well together, they are also decoupled so you can provide alternative implementations. For example:
+
+ *	You can use the Go runtimes templating system.
+ *	You can provide alternative configuration systems.
+ *	You can provide a different ORM implementation.
+ *	You can bypass controllers and use handlers directly, including handlers
+ 	from other Go web frameworks.
 
 ## Author
 
@@ -25,17 +33,16 @@ Mark Stephens (mr.morphic@gmail.com)
 
 ## Status
 
-This library is still is fairly early stages of development, and should be considered unstable. The following are known
-to work to some degree:
+This library is still is fairly early stages of development, and should be considered unstable. The following are known to work to some degree:
 
  *	ORM queries can be formulated and executed.
  *	Metadata from the database can be read and successfully used to generate queries.
  *	Query results can be used in templates.
  *	Basic controller operations are supported.
+ *	SilverStripe templates can (mostly) be rendered.
 
 Most features of SilverStripe are not implemented in goss. A few likely candidates for development include:
 
- *	Some ability to process tags in page content
  *	Ability to issue queries in either live or staging (only live is supported at present)
  *	Support for object writes via ORM
  *	Limited session support
@@ -234,7 +241,7 @@ And this is what the page-type specific template looks like:
 
 ## Configuration
 
-Configuration is provided to gorm using the ConfigProvider interface. The package goss/config package provides an implementation of this interface, which you can create and use to read configuration from a file, as follows:
+Configuration is provided to goss using the ConfigProvider interface. The package goss/config package provides an implementation of this interface, which you can create and use to read configuration from a file, as follows:
 
 	import (
 		"github.com/mrmorphic/goss/config"
@@ -313,16 +320,16 @@ Some functions provided by Controller include:
 
 ## Templates
 
-The template package implements the SilverStripe templating langu*age. The intention is that templates may be developed that are used by both the SilverStripe host app as well as the goss app. Minor alterations may need to be made for templates that are to work in both environments.
+The template package implements the SilverStripe templating language. The intention is that templates may be developed that are used by both the SilverStripe host app as well as the goss app. Minor alterations may need to be made for templates that are to work in both environments.
 
-As much as possible, the syntax has been made identical to the SilverStripe templating language.
+As much as possible, the syntax has been made identical to the SilverStripe templating language. The main differences are going to be in templating features, such as $CurrentMember or $Children, which are methods provided by the underlying controller, as goss controllers will not have all of these.
 
 ### Implemented
 
 This section lists features of the SilverStripe templating language that have been implemented. Some of the implementations may vary because of underlying differences in the systems.
 
  *	Variable substitutions: $foo, {$foo}
- *	Function substitutions: $foo(args), {$foo(args)}
+ *	Function substitutions: $foo(args), {$foo(args)}, $foo(arg1, arg2)
  *	<% base_tag %>
  *	<% if cond %>...<% end_if%> , <% else %> variation
  *	<% loop expr %>...<% end_loop %>
@@ -335,16 +342,22 @@ This section lists features of the SilverStripe templating language that have be
  
 ### Not implemented
 
+The following are not implemented. They are listed in approximate priority order for implementaton.
+
  *	$Layout
  *	Comments
- *	<% cached %> blocks are parsed and handled correctly semantically, but there is no caching of the fragments, and any expressions in the <% cached %> tag are not evaluated.
  *	else_if
- *	<%t ... %>
  *	<% require ... %>
- *	<% include %> allows for an optional binding syntax for the included template. This extra syntax is not implemented.
- *	backslash handling in string literals
- *	deprecated syntax of using identifiers without $ or double quotes
  *	requirements injection
+ *	shortcode handling
+ *	backslash handling in string literals
+ *	<%t ... %>
+ *	<% include %> allows for an optional binding syntax for the included
+	template. This extra syntax is not implemented.
+ *	deprecated syntax of using identifiers without $ or double quotes
+ *	<% cached %> blocks are parsed and handled correctly semantically, but
+	there is no caching of the fragments, and any expressions in the
+	<% cached %> tag are not evaluated.
 
 ## Revised Notes
 
