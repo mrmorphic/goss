@@ -119,12 +119,15 @@ loop:
 			// all is ok, add the variable or function to the list.
 			chunks = append(chunks, ch)
 		case tk.isSym("$"):
+			// variable/function injection
 			ch, e := p.parseVariableOrFn()
 			if e != nil {
 				return nil, e
 			}
 			chunks = append(chunks, ch)
-			// variable/function injection
+
+			p.scanner.inTemplateTag = false
+
 		default:
 			// if we don't know what to do with something, we're out of here
 			p.scanner.putBack(tk)
