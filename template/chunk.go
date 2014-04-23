@@ -14,8 +14,7 @@ const (
 	CHUNK_LOOP            chunkKind = "loop"     // a loop block
 	CHUNK_WITH            chunkKind = "with"     // a with block
 	CHUNK_IF              chunkKind = "if"
-	CHUNK_EXPR_VAR        chunkKind = "expr_var"
-	CHUNK_EXPR_FUNC       chunkKind = "expr_func"
+	CHUNK_EXPR_VARFUNC    chunkKind = "expr_varfunc"
 	CHUNK_EXPR_NUMBER     chunkKind = "expr_number"
 	CHUNK_EXPR_STRING     chunkKind = "expr_string"
 	CHUNK_EXPR_NOT        chunkKind = "expr_not"
@@ -81,17 +80,10 @@ func newChunkWith(context *chunk, body *chunk) *chunk {
 	return r
 }
 
-func newChunkExprVar(name string, chained *chunk) *chunk {
-	r := newChunk(CHUNK_EXPR_VAR)
-	r.m["name"] = name
-	r.m["chained"] = chained
-	return r
-}
-
 // Create a new chunk representing a function call. 'name' is the name of the function. 'params' is a CHUNK_BLOCK
 // containing a list of expression chunks. 'chained' is a single chunk to evaluate once we've evaluated this one.
-func newChunkExprFunc(name string, params *chunk, chained *chunk) *chunk {
-	r := newChunk(CHUNK_EXPR_FUNC)
+func newChunkExprVarFunc(name string, params *chunk, chained *chunk) *chunk {
+	r := newChunk(CHUNK_EXPR_VARFUNC)
 	r.m["name"] = name
 	r.m["params"] = params
 	r.m["chained"] = chained

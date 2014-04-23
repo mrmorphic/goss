@@ -615,11 +615,7 @@ func (p *parser) parseVariableOrFn() (*chunk, error) {
 		p.scanner.putBack(tk3)
 	}
 
-	if params == nil {
-		// this is a variable definition
-		return newChunkExprVar(tk.value, chained), nil
-	}
-	return newChunkExprFunc(tk.value, params, chained), nil
+	return newChunkExprVarFunc(tk.value, params, chained), nil
 }
 
 // parse a comma-delimited list of expressions, returning the values as a CHUNK_BLOCK

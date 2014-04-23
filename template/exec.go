@@ -52,9 +52,9 @@ func (exec *executer) renderChunk(chunk *chunk) ([]byte, error) {
 	case CHUNK_LOOP:
 	case CHUNK_WITH:
 	case CHUNK_IF:
-	case CHUNK_EXPR_VAR:
-		return exec.renderChunkVar(chunk)
-	case CHUNK_EXPR_FUNC:
+		return exec.renderChunkIf(chunk)
+	case CHUNK_EXPR_VARFUNC:
+		return exec.renderChunkVarFunc(chunk)
 	case CHUNK_EXPR_NUMBER:
 	case CHUNK_EXPR_STRING:
 	case CHUNK_EXPR_NOT:
@@ -82,9 +82,13 @@ func (exec *executer) renderChunkBlock(ch *chunk) ([]byte, error) {
 	return result, nil
 }
 
-func (exec *executer) renderChunkVar(ch *chunk) ([]byte, error) {
-	name := ch.m["name"].(string)
-	chained := ch.m["chained"].(*chunk)
+func (exec *executer) renderChunkVarFunc(ch *chunk) ([]byte, error) {
+	v, e := exec.eval(ch)
+	if e != nil {
+		return nil, e
+	}
+	return []byte(fmt.Sprintf("%s", v)), nil
+}
 
 	value, e := exec.locator.Locate(exec.context(), name, nil)
 	if e != nil {
