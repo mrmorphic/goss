@@ -234,6 +234,47 @@ And this is what the page-type specific template looks like:
 
 ## Configuration
 
+Configuration is provided to gorm using the ConfigProvider interface. The package goss/config package provides an implementation of this interface, which you can create and use to read configuration from a file, as follows:
+
+	import (
+		"github.com/mrmorphic/goss/config"
+	)
+
+	// read from config.json.
+	conf, e := config.ReadFromFile("config.json")
+	if e != nil {
+		log.Fatal(e)
+		return
+	}
+	// Give goss the configuration object.
+	e = goss.SetConfig(conf)
+	if e != nil {
+		log.Fatal(e)
+		return
+	}
+
+	// you can put your own settings in here too
+	u, e = url.Parse(conf.AsString("app.myAppName"))
+
+ConfigProvider assumes that the configuration data is organised in a name space. The goss package expects certain properties under 'goss' at the top level:
+
+ *	goss.database.driverName: driver name as required by sql.Open
+ *	goss.database.dataSourceName: data source as required by sql.Open
+ *	goss.database.maxIdleConnections: maximum number of idle connections in
+	database pool provided by sql package.
+ *	goss.database.maxOpenConnections: maximum number of open connections in
+	the database pool provided by sql package. You need to ensure that this
+	number plus the maximum number of connections of the SilverStripe site do
+	not exceed the maximum number of connections of the database server
+	itself, or you may get errors under load.
+ *	goss.ssroot: the path to webroot of your SilverStripe installation.
+ *	goss.theme: the name of the theme for template rendering. There is a
+	limitation in the goss templating enginre that all templates must be
+	located in the same theme.
+ *	goss.metadata: a path to the metadata JSON file that contains metadata
+ 	for the ORM. This is typically automatically generated using the
+ 	github.com/mrmorphic/silverstripe-goss module.
+
 ## ORM
 
 ## Controllers
