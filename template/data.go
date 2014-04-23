@@ -13,14 +13,14 @@ import (
 //    _fallback if it exists, and try to interpret that instead. This allows for the SS-type behaviour
 //    of passing a controller
 //  * if the context value implements DataLocator, it will delegate to that.
-type defaultLocator struct {
+type DefaultLocator struct {
 }
 
-func newDefaultLocator() DataLocator {
-	return &defaultLocator{}
+func NewDefaultLocator() DataLocator {
+	return &DefaultLocator{}
 }
 
-func (d *defaultLocator) Locate(context interface{}, name string, args []interface{}) (interface{}, error) {
+func (d *DefaultLocator) Locate(context interface{}, name string, args []interface{}) (interface{}, error) {
 	fmt.Printf("Locate %s (%s) in %s\n", name, args, context)
 	ctx := reflect.ValueOf(context)
 	var value interface{}
