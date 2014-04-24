@@ -36,7 +36,7 @@ func TestLiteralOnly(t *testing.T) {
 }
 
 func configure() error {
-	conf, e := config.ReadFromFile("template_test_config.json")
+	conf, e := config.ReadFromFile("test/config.json")
 	if e != nil {
 		return e
 	}
