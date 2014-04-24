@@ -2,6 +2,7 @@ package template
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -137,7 +138,8 @@ func (sc *scanner) scanToken() (*token, error) {
 				for {
 					lsr := len(sc.source)
 					if lsr < 4 {
-						return nil, errors.New("Unterminated <%-- comment")
+						sc.source = lit + sc.source // put it back
+						return nil, fmt.Errorf("Unterminated <%-- comment")
 					}
 					if sc.source[0:4] == "--%>" {
 						lit += "--%>"
@@ -228,7 +230,6 @@ func (sc *scanner) scanNumericLiteral(lit string, r bool) (*token, error) {
 	return newToken(TOKEN_NUMBER, num, lit, r), nil
 }
 
-// @todo handle backquote within the literal, including \"
 func (sc *scanner) scanStringLiteral(lit string, r bool) (*token, error) {
 	// string literal
 	str := ""
@@ -239,6 +240,7 @@ func (sc *scanner) scanStringLiteral(lit string, r bool) (*token, error) {
 		lsr := len(sc.source)
 		if lsr == 0 {
 			// an unterminated string
+			sc.source = lit + sc.source // put it back
 			return nil, errors.New("Unterminated string")
 		}
 
