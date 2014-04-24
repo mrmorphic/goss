@@ -373,8 +373,44 @@ func (p *parser) parseWith() (*chunk, error) {
 	return newChunkWith(context, body), nil
 }
 
+// parse name ( string ) %>
 func (p *parser) parseRequire() (*chunk, error) {
-	return nil, nil
+	// scan the name
+	tk, e := p.scanner.scanToken()
+	if e != nil {
+		return nil, e
+	}
+	if tk.kind != TOKEN_IDENT {
+		return nil, fmt.Errorf("Expected identifier, got '%s'", tk.printable())
+	}
+
+	if tk.value != "css" && tk.value != "themedCSS" && tk.value != "javascript" {
+		return nil, fmt.Errorf("Require expected css, themedCSS or javascript, but got %s", tk.value)
+	}
+
+	e = p.expectSym("(")
+	if e != nil {
+		return nil, e
+	}
+
+	tk2, e := p.scanner.scanToken()
+	if e != nil {
+		return nil, e
+	}
+	if tk2.kind != TOKEN_STRING {
+		return nil, fmt.Errorf("Require expected a string path, got %s", tk2.printable())
+	}
+
+	e = p.expectSym(")")
+	if e != nil {
+		return nil, e
+	}
+
+	e = p.expectSym("%>")
+	if e != nil {
+		return nil, e
+	}
+	return newChunkRequire(tk.value, tk2.value), nil
 }
 
 func (p *parser) parseTranslation() (*chunk, error) {

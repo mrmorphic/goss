@@ -3,6 +3,7 @@ package template
 import (
 	"errors"
 	"fmt"
+	"github.com/mrmorphic/goss"
 	"reflect"
 )
 
@@ -17,10 +18,13 @@ type executer struct {
 
 	// The locator for symbol lookups
 	locator DataLocator
+
+	// interface for handling requirements processing
+	require goss.RequirementsProvider
 }
 
-func newExecuter(templates []*compiledTemplate, context interface{}, locator DataLocator) *executer {
-	exec := &executer{contextStack: make([]interface{}, 0), templates: templates, locator: locator}
+func newExecuter(templates []*compiledTemplate, context interface{}, locator DataLocator, require goss.RequirementsProvider) *executer {
+	exec := &executer{contextStack: make([]interface{}, 0), templates: templates, locator: locator, require: require}
 	exec.push(context)
 	return exec
 }
@@ -49,6 +53,26 @@ func (exec *executer) context() interface{} {
 	return exec.contextStack[n-1]
 }
 
+// Invokes renderChunk to render the template, and then invokes the requirements provider
+// to inject the correct bits into the output.
+func (exec *executer) render() ([]byte, error) {
+	// Render the main template
+	bytes, e := exec.renderChunk(exec.templates[0].chunk)
+	if e != nil {
+		return nil, e
+	}
+
+	fmt.Printf("exec.render: output is %s\n", bytes)
+	// insert the header tags
+	bytes, e = exec.require.InsertHeadTags(bytes)
+	if e != nil {
+		return nil, e
+	}
+
+	// insert the body tags
+	return exec.require.InsertBodyTags(bytes)
+}
+
 // given a chunk, render it using the current context
 func (exec *executer) renderChunk(chunk *chunk) ([]byte, error) {
 	switch chunk.kind {
@@ -67,6 +91,8 @@ func (exec *executer) renderChunk(chunk *chunk) ([]byte, error) {
 		return exec.renderChunkIf(chunk)
 	case CHUNK_LAYOUT:
 		return exec.renderChunkLayout(chunk)
+	case CHUNK_REQUIRE:
+		return exec.renderRequire(chunk)
 	case CHUNK_EXPR_VARFUNC:
 		return exec.renderChunkVarFunc(chunk)
 	case CHUNK_EXPR_NUMBER:
@@ -220,6 +246,26 @@ func (exec *executer) renderChunkLoop(ch *chunk) ([]byte, error) {
 	}
 
 	return result, nil
+}
+
+// renderRequire is something of a special case. It does not render inline, so returns an empty slice.
+// But it tells the requirements interface to include a new file.
+func (exec *executer) renderRequire(ch *chunk) ([]byte, error) {
+	rtype := ch.m["type"].(string)
+	path := ch.m["path"].(string)
+
+	switch rtype {
+	case "themedCSS":
+		// because we only have one theme, we can calculate the path. Also, when using themedCSS the .css
+		// is not put in.
+		path = configuration.cssPath + path + ".css"
+		exec.require.CSS(path)
+	case "css":
+		exec.require.CSS(path)
+	case "javascript":
+		exec.require.Javascript(path)
+	}
+	return []byte{}, nil
 }
 
 // evalBlock evaluates a list of expressions in a block, which themselves are *chunk values. These

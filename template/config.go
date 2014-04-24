@@ -16,6 +16,7 @@ var configuration struct {
 
 	// derived properties
 	templatesPath string
+	cssPath       string
 	layoutsPath   string
 	includesPath  string
 }
@@ -63,6 +64,7 @@ func getConfig(c goss.ConfigProvider) error {
 	configuration.defaultProtocol = defaultProtocol
 
 	configuration.templatesPath = configuration.ssRoot + "themes/" + configuration.themeName + "/templates/"
+	configuration.cssPath = configuration.ssRoot + "themes/" + configuration.themeName + "/css/"
 	configuration.layoutsPath = "Layout/"
 	configuration.includesPath = "Includes/"
 

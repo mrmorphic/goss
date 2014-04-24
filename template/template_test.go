@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/mrmorphic/goss"
 	"github.com/mrmorphic/goss/config"
+	"github.com/mrmorphic/goss/requirements"
 	"net/http"
 	"testing"
 )
@@ -27,13 +28,17 @@ func (r *responseCapture) WriteHeader(status int) {
 }
 
 // utility function to compile and execute template source using the given context
-func compileAndExecute(source string, context interface{}) ([]byte, error) {
+func compileAndExecute(source string, context interface{}) ([]byte, *executer, error) {
 	compiled, e := newParser().parseSource(source, true)
 	if e != nil {
-		return nil, e
+		return nil, nil, e
 	}
-	exec := newExecuter([]*compiledTemplate{compiled}, context, NewDefaultLocator())
-	return exec.renderChunk(compiled.chunk)
+	exec := newExecuter([]*compiledTemplate{compiled}, context, NewDefaultLocator(), requirements.NewRequirements())
+	bytes, e := exec.render()
+	if e != nil {
+		return nil, nil, e
+	}
+	return bytes, exec, e
 }
 
 // test source that contains no <% or $. We expect just a single literal.
@@ -135,7 +140,7 @@ func TestExec(t *testing.T) {
 	context["title"] = "dear"
 
 	// evaluate it
-	exec := newExecuter([]*compiledTemplate{compiled}, context, NewDefaultLocator())
+	exec := newExecuter([]*compiledTemplate{compiled}, context, NewDefaultLocator(), requirements.NewRequirements())
 	bytes, e := exec.renderChunk(compiled.chunk)
 
 	if e != nil {
@@ -156,7 +161,7 @@ func TestLayout(t *testing.T) {
 	capture := &responseCapture{}
 	context := make(map[string]interface{})
 
-	e = RenderWith(capture, []string{"TestA", "TestALayout"}, context, nil)
+	e = RenderWith(capture, []string{"TestA", "TestALayout"}, context, nil, nil)
 
 	if string(capture.response) != "startTestALayoutend" {
 		t.Errorf("main/layout response was not expected: %s", capture.response)
@@ -174,7 +179,7 @@ func TestComment(t *testing.T) {
 	context := make(map[string]interface{})
 
 	for source, result := range validSources {
-		bytes, e := compileAndExecute(source, context)
+		bytes, _, e := compileAndExecute(source, context)
 
 		if e != nil {
 			t.Errorf("Unexpected exec error: %s [in source: %s]", e, source)
@@ -196,7 +201,7 @@ func TestComment(t *testing.T) {
 func TestBaseTag(t *testing.T) {
 	source := "<% base_tag %>"
 	context := make(map[string]interface{})
-	bytes, e := compileAndExecute(source, context)
+	bytes, _, e := compileAndExecute(source, context)
 
 	if e != nil {
 		t.Error(e.Error())
@@ -214,7 +219,7 @@ func TestWith(t *testing.T) {
 	child := make(map[string]interface{})
 	child["foo"] = "bar"
 	context["parent"] = child
-	bytes, e := compileAndExecute(source, context)
+	bytes, _, e := compileAndExecute(source, context)
 	if e != nil {
 		t.Error(e.Error())
 		return
@@ -239,7 +244,7 @@ func TestLoop(t *testing.T) {
 	items = append(items, makeItem("c"))
 	context["Items"] = items
 
-	bytes, e := compileAndExecute(source, context)
+	bytes, _, e := compileAndExecute(source, context)
 	if e != nil {
 		t.Error(e.Error())
 		return
@@ -247,4 +252,24 @@ func TestLoop(t *testing.T) {
 	if string(bytes) != "[abc]" {
 		t.Errorf("Unexpected loop output: %s", bytes)
 	}
+}
+
+func TestRequireJS(t *testing.T) {
+	source := `<html><head><title>x</title></head><body><% require javascript("themes/simple/javascript/test.js") %><div>test</div></body></html>`
+	context := map[string]interface{}{}
+
+	bytes, exec, e := compileAndExecute(source, context)
+	if e != nil {
+		t.Error(e.Error())
+		return
+	}
+	fmt.Printf("%s\n", bytes)
+	fmt.Printf("%s\n", exec)
+}
+
+func TestRequireCSS(t *testing.T) {
+}
+
+func TestRequireThemedCSS(t *testing.T) {
+
 }

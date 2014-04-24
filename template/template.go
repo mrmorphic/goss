@@ -1,6 +1,8 @@
 package template
 
 import (
+	"github.com/mrmorphic/goss"
+	"github.com/mrmorphic/goss/requirements"
 	"io/ioutil"
 	"net/http"
 )
@@ -75,10 +77,14 @@ var compiledTemplates map[string]*compiledTemplate
 // writer. 'templates' is an array of SilverStripe templates minus the ".ss" extension. If there is one template,
 // it is assumed to be in the base templates folder. If two are present, the first is the base template, the
 // second is the $Layout template.
-func RenderWith(w http.ResponseWriter, templates []string, context interface{}, locator DataLocator) error {
+func RenderWith(w http.ResponseWriter, templates []string, context interface{}, locator DataLocator, require goss.RequirementsProvider) error {
 	if locator == nil {
 		locator = NewDefaultLocator()
 	}
+	if require == nil {
+		require = requirements.NewRequirements()
+	}
+
 	// make templates relative to templates folder
 	if len(templates) > 1 {
 		templates[1] = "Layout/" + templates[1]
@@ -97,7 +103,7 @@ func RenderWith(w http.ResponseWriter, templates []string, context interface{}, 
 	}
 
 	// execute the template using the data locator
-	r, e := executeTemplate(compiled, context, locator)
+	r, e := executeTemplate(compiled, context, locator, require)
 	if e != nil {
 		return e
 	}
@@ -107,9 +113,9 @@ func RenderWith(w http.ResponseWriter, templates []string, context interface{}, 
 	return e
 }
 
-func executeTemplate(templates []*compiledTemplate, context interface{}, locator DataLocator) ([]byte, error) {
-	exec := newExecuter(templates, context, locator)
-	return exec.renderChunk(templates[0].chunk)
+func executeTemplate(templates []*compiledTemplate, context interface{}, locator DataLocator, require goss.RequirementsProvider) ([]byte, error) {
+	exec := newExecuter(templates, context, locator, require)
+	return exec.render()
 }
 
 // compileTemplate takes a template by path (relative to templates folder) and compiles it into a compiledTemplate.

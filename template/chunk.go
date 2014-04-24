@@ -14,6 +14,7 @@ const (
 	CHUNK_LOOP            chunkKind = "loop"     // a loop block
 	CHUNK_WITH            chunkKind = "with"     // a with block
 	CHUNK_IF              chunkKind = "if"
+	CHUNK_REQUIRE         chunkKind = "require"
 	CHUNK_LAYOUT          chunkKind = "layout"
 	CHUNK_EXPR_VARFUNC    chunkKind = "expr_varfunc"
 	CHUNK_EXPR_NUMBER     chunkKind = "expr_number"
@@ -57,6 +58,13 @@ func newChunkInclude(c *compiledTemplate) *chunk {
 func newChunkBlock(chunks []*chunk) *chunk {
 	r := newChunk(CHUNK_BLOCK)
 	r.m["chunks"] = chunks
+	return r
+}
+
+func newChunkRequire(rType string, path string) *chunk {
+	r := newChunk(CHUNK_REQUIRE)
+	r.m["type"] = rType
+	r.m["path"] = path
 	return r
 }
 
