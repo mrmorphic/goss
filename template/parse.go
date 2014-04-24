@@ -613,44 +613,42 @@ func (p *parser) parseVariableOrFn() (*chunk, error) {
 		return nil, fmt.Errorf("Expected identifier for a variable or function, got '%s'", tk.printable())
 	}
 
-	// check for open parentheses, this indicates a function call
+	// check for open parentheses, this indicates a function call. An error from the scanner indicates that
+	// what follows might not be in template, so return the var
 	tk2, e := p.scanner.scanToken()
-	if e != nil {
-		return nil, e
-	}
 
 	var params *chunk
+	var chained *chunk
 
-	if tk2.isSym("(") {
-		params, e = p.parseExpressionList(true)
-		if e != nil {
-			return nil, e
+	if e == nil {
+		if tk2.isSym("(") {
+			params, e = p.parseExpressionList(true)
+			if e != nil {
+				return nil, e
+			}
+			e = p.expectSym(")")
+			if e != nil {
+				return nil, e
+			}
+		} else {
+			p.scanner.putBack(tk2)
 		}
-		e = p.expectSym(")")
-		if e != nil {
-			return nil, e
-		}
-	} else {
-		p.scanner.putBack(tk2)
 	}
 
 	// at this point, tk.value is the name; params is nil for a variable, and a chunkBlock for a function, representing parameters
 
 	// check if there is a "."
 	tk3, e := p.scanner.scanToken()
-	if e != nil {
-		return nil, e
-	}
 
-	var chained *chunk
-
-	if tk3.isSym(".") {
-		chained, e = p.parseVariableOrFn()
-		if e != nil {
-			return nil, e
+	if e == nil {
+		if tk3.isSym(".") {
+			chained, e = p.parseVariableOrFn()
+			if e != nil {
+				return nil, e
+			}
+		} else {
+			p.scanner.putBack(tk3)
 		}
-	} else {
-		p.scanner.putBack(tk3)
 	}
 
 	// $Layout is a special case. It's just an empty chunk.
