@@ -111,7 +111,7 @@ func (sc *scanner) scanToken() (*token, error) {
 
 			case strings.Contains(digits, sc.source[0:1]):
 				return sc.scanNumericLiteral(lit, r)
-			case sc.source[0] == '"':
+			case sc.source[0] == '"' || sc.source[0] == '\'':
 				return sc.scanStringLiteral(lit, r)
 			default:
 				if ls >= 2 {
@@ -232,8 +232,9 @@ func (sc *scanner) scanNumericLiteral(lit string, r bool) (*token, error) {
 func (sc *scanner) scanStringLiteral(lit string, r bool) (*token, error) {
 	// string literal
 	str := ""
+	delimiter := sc.source[0:1]
 	sc.source = sc.source[1:]
-	lit += "\""
+	lit += delimiter
 	for {
 		lsr := len(sc.source)
 		if lsr == 0 {
@@ -241,9 +242,9 @@ func (sc *scanner) scanStringLiteral(lit string, r bool) (*token, error) {
 			return nil, errors.New("Unterminated string")
 		}
 
-		if sc.source[0] == '"' {
+		if sc.source[0:1] == delimiter {
 			sc.source = sc.source[1:] // drop the trailing quotes
-			lit += "\""
+			lit += delimiter
 			break
 		}
 
