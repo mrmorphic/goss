@@ -336,6 +336,7 @@ This section lists features of the SilverStripe templating language that have be
  *	<% if cond %>...<% end_if%> , <% else %> variation
  *	<% loop expr %>...<% end_loop %>
  *	<% with expr %>...<% end_with %>
+ *	<% include %>, but not optional binding syntax
  *	operators: ||, &&, ==, !=, >, >=, <, <=, not
  *	numeric literals (no decimals)
  *	string literals (backslashes in strings not handled)
@@ -349,10 +350,6 @@ This section lists features of the SilverStripe templating language that have be
  	no actual caching (compiled templates are, however, cached)
  
 ### Not implemented
-
-The following are parsed only:
- *	<% include %>, but not optional binding syntax
-
 
 The following are not implemented. They are listed in approximate priority order for implementaton.
 
