@@ -8,9 +8,11 @@ import (
 
 // A config object for the template package, which makes it more obvious when we're talking about config properties.
 var configuration struct {
-	initialised bool
-	ssRoot      string
-	themeName   string
+	initialised     bool
+	ssRoot          string
+	themeName       string
+	siteUrl         string
+	defaultProtocol string
 
 	// derived properties
 	templatesPath string
@@ -44,9 +46,21 @@ func getConfig(c goss.ConfigProvider) error {
 		return errors.New("goss template rendering requires configuration property 'theme' is set")
 	}
 
+	siteUrl := c.AsString("goss.siteUrl") // optional
+
+	defaultProtocol := c.AsString("goss.defaultProtocol")
+	if defaultProtocol == "" {
+		defaultProtocol = "http"
+	}
+	if defaultProtocol != "http" && defaultProtocol != "https" {
+		return fmt.Errorf("goss only supports defaultProtocol of 'http' or 'https', and not '%s'", defaultProtocol)
+	}
+
 	configuration.initialised = true
 	configuration.ssRoot = base
 	configuration.themeName = theme
+	configuration.siteUrl = siteUrl
+	configuration.defaultProtocol = defaultProtocol
 
 	configuration.templatesPath = configuration.ssRoot + "themes/" + configuration.themeName + "/templates/"
 	configuration.layoutsPath = "Layout/"

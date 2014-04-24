@@ -55,6 +55,7 @@ func (exec *executer) renderChunk(chunk *chunk) ([]byte, error) {
 	case CHUNK_LITERAL:
 		return []byte(chunk.m["content"].(string)), nil
 	case CHUNK_BASE_TAG:
+		return exec.renderBaseTag(chunk)
 	case CHUNK_INCLUDE:
 	case CHUNK_BLOCK:
 		return exec.renderChunkBlock(chunk)
@@ -139,6 +140,18 @@ func (exec *executer) renderChunkLayout(ch *chunk) ([]byte, error) {
 
 	// Just render the layout template
 	return exec.renderChunk(exec.templates[1].chunk)
+}
+
+func (exec *executer) renderBaseTag(ch *chunk) ([]byte, error) {
+	url := configuration.siteUrl
+	if url == "" {
+		url = "localhost"
+	}
+	if url[0:7] != "http://" && url[0:8] != "https://" {
+		url = configuration.defaultProtocol + "://" + url
+	}
+	tag := `<base href="` + url + ` /><!--[if lte IE 6]></base><![endif]-->`
+	return []byte(tag), nil
 }
 
 // evalBlock evaluates a list of expressions in a block, which themselves are *chunk values. These

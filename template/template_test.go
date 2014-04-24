@@ -188,3 +188,24 @@ func TestComment(t *testing.T) {
 		t.Error("Expected error about unterminated comment, didn't get an error")
 	}
 }
+
+func TestBaseTag(t *testing.T) {
+	source := "<% base_tag %>"
+	compiled, e := newParser().parseSource(source, true)
+	if e != nil {
+		t.Errorf("Unexpected parse error: %s ", e)
+		return
+	}
+	context := make(map[string]interface{})
+	exec := newExecuter([]*compiledTemplate{compiled}, context, NewDefaultLocator())
+	bytes, e := exec.renderChunk(compiled.chunk)
+
+	if e != nil {
+		t.Errorf("Unexpected exec error: %s", e)
+		return
+	}
+
+	if string(bytes) != `<base href="http://localhost /><!--[if lte IE 6]></base><![endif]-->` {
+		t.Errorf("Incorrect base tag calculation: '%s': check test/config.json", bytes)
+	}
+}

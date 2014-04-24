@@ -275,8 +275,11 @@ ConfigProvider assumes that the configuration data is organised in a name space.
 	not exceed the maximum number of connections of the database server
 	itself, or you may get errors under load.
  *	goss.ssroot: the path to webroot of your SilverStripe installation.
+ *	goss.siteUrl: the URL the site is publicly known as
+ *	goss.defaultProtocol: must be http or https, and can be used in generation
+	of URLs.
  *	goss.theme: the name of the theme for template rendering. There is a
-	limitation in the goss templating enginre that all templates must be
+	limitation in the goss templating engine that all templates must be
 	located in the same theme.
  *	goss.metadata: a path to the metadata JSON file that contains metadata
  	for the ORM. This is typically automatically generated using the
@@ -330,19 +333,22 @@ This section lists features of the SilverStripe templating language that have be
 
  *	variable substitutions: $foo, {$foo}
  *	function substitutions: $foo(args), {$foo(args)}, $foo(arg1, arg2)
- *	<% base_tag %>
  *	<% if cond %>...<% end_if%> , <% else %> variation
- *	<% loop expr %>...<% end_loop %>
- *	<% with expr %>...<% end_with %>
- *	<% include %>, but not optional binding syntax
  *	operators: ||, &&, ==, !=, >, >=, <, <=, not
  *	numeric literals (no decimals)
  *	string literals (backslashes in strings not handled)
  *	chained variable and functions, eg $foo.bar, $foo().bar("abc")
  *	main templates and main/layout arrangements, $Layout
  *	comments
+ *	<% base_tag %>
  
 ### Not implemented
+
+The following are parsed only:
+ *	<% loop expr %>...<% end_loop %>
+ *	<% with expr %>...<% end_with %>
+ *	<% include %>, but not optional binding syntax
+
 
 The following are not implemented. They are listed in approximate priority order for implementaton.
 
