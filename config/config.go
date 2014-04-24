@@ -36,7 +36,6 @@ func ReadFromFile(path string) (Config, error) {
 
 	result.nestedMerge(nested, "")
 
-	fmt.Printf("Config is %s\n", result)
 	return result, nil
 }
 
@@ -57,14 +56,19 @@ func (c Config) nestedMerge(object map[string]interface{}, prefix string) {
 	}
 }
 
-// Look up an object in the map via a key. The key can have "." separators for names;
+// Get looks up an object in the map via a key. The key can have "." separators for names;
 // this will go into the structure as appropriate. It will return nil if a key maps to an undefined
 // property, or where a partial key is not an object.
 func (c Config) Get(key string) interface{} {
 	return c[key]
 }
 
+// AsString returns a key from the configuration (using Get), but returning it as a string.
+// If the key is not defined, it returns "".
 func (c Config) AsString(key string) string {
 	v := c.Get(key)
+	if v == nil {
+		return ""
+	}
 	return fmt.Sprintf("%s", v)
 }
