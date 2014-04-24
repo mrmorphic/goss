@@ -38,6 +38,22 @@ func compileAndExecute(source string, context interface{}) ([]byte, error) {
 	return exec.render()
 }
 
+// helper function to compile and execute a list of sources and comparing the output to
+// expected results, using a supplied context. 'sources' is a map where the key is the
+// source to be parsed, and the value is the expected result.
+func testSourceList(sources map[string]string, context interface{}, t *testing.T) {
+	for source, expected := range sources {
+		b, e := compileAndExecute(source, context)
+		if e != nil {
+			t.Error(e.Error())
+			return
+		}
+		if string(b) != expected {
+			t.Errorf("Expected '%s', got '%s'", expected, b)
+		}
+	}
+}
+
 // test source that contains no <% or $. We expect just a single literal.
 func TestLiteralOnly(t *testing.T) {
 	_, e := newParser().parseSource("<html><body>simple</body></html>", true)
@@ -47,6 +63,7 @@ func TestLiteralOnly(t *testing.T) {
 	}
 }
 
+// handle loading the test configuration
 func configure() error {
 	conf, e := config.ReadFromFile("test/config.json")
 	if e != nil {
@@ -62,6 +79,7 @@ func configure() error {
 	return nil
 }
 
+// @todo refactor into a number of case-specific tests
 func TestVariants(t *testing.T) {
 	e := configure()
 	if e != nil {
@@ -100,6 +118,7 @@ func TestVariants(t *testing.T) {
 	}
 }
 
+// @todo refactor into a number of case-specific tests
 func TestExec(t *testing.T) {
 	e := configure()
 	if e != nil {
@@ -166,27 +185,17 @@ func TestLayout(t *testing.T) {
 }
 
 func TestComment(t *testing.T) {
-	validSources := make(map[string]string)
-	validSources["abc<%-- comment --%>def"] = "abcdef"
-	validSources["abc<%-- comment --%>"] = "abc"
-	validSources["<%-- comment --%>def"] = "def"
-	validSources[`abc<%-- multiline
-	comment --%>def`] = "abcdef"
+	sources := map[string]string{
+		`abc<%-- comment --%>def`: `abcdef`,
+		`abc<%-- comment --%>`:    `abc`,
+		`<%-- comment --%>def`:    `def`,
+		`abc<%-- multiline
+	comment --%>def`: `abcdef`,
+	}
 
 	context := make(map[string]interface{})
 
-	for source, result := range validSources {
-		bytes, e := compileAndExecute(source, context)
-
-		if e != nil {
-			t.Errorf("Unexpected exec error: %s [in source: %s]", e, source)
-			return
-		}
-
-		if string(bytes) != result {
-			t.Errorf("Unexpected result: %s [in source: %s]", bytes, source)
-		}
-	}
+	testSourceList(sources, context, t)
 
 	// now test for failure parsing an unclosed comment
 	_, e := newParser().parseSource("abc<%-- comment", true)
@@ -196,34 +205,24 @@ func TestComment(t *testing.T) {
 }
 
 func TestBaseTag(t *testing.T) {
-	source := "<% base_tag %>"
+	sources := map[string]string{
+		`<% base_tag %>`: `<base href="http://localhost /><!--[if lte IE 6]></base><![endif]-->`,
+	}
 	context := make(map[string]interface{})
-	bytes, e := compileAndExecute(source, context)
 
-	if e != nil {
-		t.Error(e.Error())
-		return
-	}
-
-	if string(bytes) != `<base href="http://localhost /><!--[if lte IE 6]></base><![endif]-->` {
-		t.Errorf("Incorrect base tag calculation: '%s': check test/config.json", bytes)
-	}
+	testSourceList(sources, context, t)
 }
 
 func TestWith(t *testing.T) {
-	source := `<% with parent %>$foo<% end_with %>`
+	sources := map[string]string{
+		`<% with parent %>$foo<% end_with %>`: `bar`,
+	}
 	context := make(map[string]interface{})
 	child := make(map[string]interface{})
 	child["foo"] = "bar"
 	context["parent"] = child
-	bytes, e := compileAndExecute(source, context)
-	if e != nil {
-		t.Error(e.Error())
-		return
-	}
-	if string(bytes) != "bar" {
-		t.Errorf("Expected 'foo' but got '%s'", bytes)
-	}
+
+	testSourceList(sources, context, t)
 }
 
 func makeItem(title string) interface{} {
@@ -233,7 +232,9 @@ func makeItem(title string) interface{} {
 }
 
 func TestLoop(t *testing.T) {
-	source := `[<% loop Items %>$Title<% end_loop %>]`
+	sources := map[string]string{
+		`[<% loop Items %>$Title<% end_loop %>]`: `[abc]`,
+	}
 	context := make(map[string]interface{})
 	items := make([]interface{}, 0)
 	items = append(items, makeItem("a"))
@@ -241,14 +242,7 @@ func TestLoop(t *testing.T) {
 	items = append(items, makeItem("c"))
 	context["Items"] = items
 
-	bytes, e := compileAndExecute(source, context)
-	if e != nil {
-		t.Error(e.Error())
-		return
-	}
-	if string(bytes) != "[abc]" {
-		t.Errorf("Unexpected loop output: %s", bytes)
-	}
+	testSourceList(sources, context, t)
 }
 
 func TestRequireJS(t *testing.T) {
@@ -294,16 +288,32 @@ func TestRequireThemedCSS(t *testing.T) {
 }
 
 func TestInclude(t *testing.T) {
-	source := `[<% include Footer %>]`
+	sources := map[string]string{
+		`[<% include Footer %>]`: `[test footer]`,
+	}
 	context := map[string]interface{}{}
 
-	b, e := compileAndExecute(source, context)
-	if e != nil {
-		t.Error(e.Error())
-		return
+	testSourceList(sources, context, t)
+}
+
+func TestString(t *testing.T) {
+	sources := map[string]string{
+		`<div class="$foo"></div>`: `<div class="bar"></div>`,
 	}
-	expected := "[test footer]"
-	if string(b) != expected {
-		t.Errorf("Expected '%s', got '%s'", expected, b)
+	context := map[string]interface{}{}
+	context["foo"] = "bar"
+
+	testSourceList(sources, context, t)
+}
+
+// Test that == and = are treated the same
+func TestEquals(t *testing.T) {
+	sources := map[string]string{
+		`<% if $foo="bar" %>yes<% end_if %>`:  "yes",
+		`<% if $foo=="bar" %>yes<% end_if %>`: "yes",
 	}
+	context := map[string]interface{}{}
+	context["foo"] = "bar"
+
+	testSourceList(sources, context, t)
 }
