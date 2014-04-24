@@ -15,10 +15,15 @@ var configuration struct {
 	defaultProtocol string
 
 	// derived properties
+
+	// path of templates relative to goss application.ssRoot + path to templates.
 	templatesPath string
-	cssPath       string
-	layoutsPath   string
-	includesPath  string
+
+	// URL of css folder in theme, relative to SilverStripe web root URL, siteUrl
+	cssURL string
+
+	layoutsPath  string
+	includesPath string
 }
 
 // Register getConfig to be provided configuration from the app.
@@ -64,7 +69,7 @@ func getConfig(c goss.ConfigProvider) error {
 	configuration.defaultProtocol = defaultProtocol
 
 	configuration.templatesPath = configuration.ssRoot + "themes/" + configuration.themeName + "/templates/"
-	configuration.cssPath = configuration.ssRoot + "themes/" + configuration.themeName + "/css/"
+	configuration.cssURL = "themes/" + configuration.themeName + "/css/"
 	configuration.layoutsPath = "Layout/"
 	configuration.includesPath = "Includes/"
 

@@ -258,7 +258,7 @@ func (exec *executer) renderRequire(ch *chunk) ([]byte, error) {
 	case "themedCSS":
 		// because we only have one theme, we can calculate the path. Also, when using themedCSS the .css
 		// is not put in.
-		path = configuration.cssPath + path + ".css"
+		path = configuration.cssURL + path + ".css"
 		exec.require.CSS(path)
 	case "css":
 		exec.require.CSS(path)
