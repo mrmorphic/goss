@@ -1,6 +1,7 @@
 package template
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/mrmorphic/goss"
 	"github.com/mrmorphic/goss/config"
@@ -28,17 +29,13 @@ func (r *responseCapture) WriteHeader(status int) {
 }
 
 // utility function to compile and execute template source using the given context
-func compileAndExecute(source string, context interface{}) ([]byte, *executer, error) {
+func compileAndExecute(source string, context interface{}) ([]byte, error) {
 	compiled, e := newParser().parseSource(source, true)
 	if e != nil {
-		return nil, nil, e
+		return nil, e
 	}
 	exec := newExecuter([]*compiledTemplate{compiled}, context, NewDefaultLocator(), requirements.NewRequirements())
-	bytes, e := exec.render()
-	if e != nil {
-		return nil, nil, e
-	}
-	return bytes, exec, e
+	return exec.render()
 }
 
 // test source that contains no <% or $. We expect just a single literal.
@@ -179,7 +176,7 @@ func TestComment(t *testing.T) {
 	context := make(map[string]interface{})
 
 	for source, result := range validSources {
-		bytes, _, e := compileAndExecute(source, context)
+		bytes, e := compileAndExecute(source, context)
 
 		if e != nil {
 			t.Errorf("Unexpected exec error: %s [in source: %s]", e, source)
@@ -201,7 +198,7 @@ func TestComment(t *testing.T) {
 func TestBaseTag(t *testing.T) {
 	source := "<% base_tag %>"
 	context := make(map[string]interface{})
-	bytes, _, e := compileAndExecute(source, context)
+	bytes, e := compileAndExecute(source, context)
 
 	if e != nil {
 		t.Error(e.Error())
@@ -219,7 +216,7 @@ func TestWith(t *testing.T) {
 	child := make(map[string]interface{})
 	child["foo"] = "bar"
 	context["parent"] = child
-	bytes, _, e := compileAndExecute(source, context)
+	bytes, e := compileAndExecute(source, context)
 	if e != nil {
 		t.Error(e.Error())
 		return
@@ -244,7 +241,7 @@ func TestLoop(t *testing.T) {
 	items = append(items, makeItem("c"))
 	context["Items"] = items
 
-	bytes, _, e := compileAndExecute(source, context)
+	bytes, e := compileAndExecute(source, context)
 	if e != nil {
 		t.Error(e.Error())
 		return
@@ -258,18 +255,40 @@ func TestRequireJS(t *testing.T) {
 	source := `<html><head><title>x</title></head><body><% require javascript("themes/simple/javascript/test.js") %><div>test</div></body></html>`
 	context := map[string]interface{}{}
 
-	bytes, exec, e := compileAndExecute(source, context)
+	b, e := compileAndExecute(source, context)
 	if e != nil {
 		t.Error(e.Error())
 		return
 	}
-	fmt.Printf("%s\n", bytes)
-	fmt.Printf("%s\n", exec)
+	if bytes.Index(b, []byte(`<script type="text/javascript" src="themes/simple/javascript/test.js"></script></body>`)) < 0 {
+		t.Errorf("Expecting to see test.js embedded before body")
+	}
 }
 
 func TestRequireCSS(t *testing.T) {
+	source := `<html><head><title>x</title></head><body><% require css("themes/simple/css/test.css") %><div>test</div></body></html>`
+	context := map[string]interface{}{}
+
+	b, e := compileAndExecute(source, context)
+	if e != nil {
+		t.Error(e.Error())
+		return
+	}
+	if bytes.Index(b, []byte(`<link rel="stylesheet" type="text/css" href="themes/simple/css/test.css" /></head>`)) < 0 {
+		t.Errorf("Expecting to see test.js embedded before body")
+	}
 }
 
 func TestRequireThemedCSS(t *testing.T) {
+	source := `<html><head><title>x</title></head><body><% require themedCSS("test") %><div>test</div></body></html>`
+	context := map[string]interface{}{}
 
+	b, e := compileAndExecute(source, context)
+	if e != nil {
+		t.Error(e.Error())
+		return
+	}
+	if bytes.Index(b, []byte(`<link rel="stylesheet" type="text/css" href="themes/simple/css/test.css" /></head>`)) < 0 {
+		t.Errorf("Expecting to see test.js embedded before body")
+	}
 }
