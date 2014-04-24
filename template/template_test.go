@@ -26,6 +26,16 @@ func (r *responseCapture) Write(bytes []byte) (int, error) {
 func (r *responseCapture) WriteHeader(status int) {
 }
 
+// utility function to compile and execute template source using the given context
+func compileAndExecute(source string, context interface{}) ([]byte, error) {
+	compiled, e := newParser().parseSource(source, true)
+	if e != nil {
+		return nil, e
+	}
+	exec := newExecuter([]*compiledTemplate{compiled}, context, NewDefaultLocator())
+	return exec.renderChunk(compiled.chunk)
+}
+
 // test source that contains no <% or $. We expect just a single literal.
 func TestLiteralOnly(t *testing.T) {
 	_, e := newParser().parseSource("<html><body>simple</body></html>", true)
@@ -164,13 +174,7 @@ func TestComment(t *testing.T) {
 	context := make(map[string]interface{})
 
 	for source, result := range validSources {
-		compiled, e := newParser().parseSource(source, true)
-		if e != nil {
-			t.Errorf("Unexpected parse error: %s [in source: %s]", e, source)
-			return
-		}
-		exec := newExecuter([]*compiledTemplate{compiled}, context, NewDefaultLocator())
-		bytes, e := exec.renderChunk(compiled.chunk)
+		bytes, e := compileAndExecute(source, context)
 
 		if e != nil {
 			t.Errorf("Unexpected exec error: %s [in source: %s]", e, source)
@@ -191,21 +195,31 @@ func TestComment(t *testing.T) {
 
 func TestBaseTag(t *testing.T) {
 	source := "<% base_tag %>"
-	compiled, e := newParser().parseSource(source, true)
-	if e != nil {
-		t.Errorf("Unexpected parse error: %s ", e)
-		return
-	}
 	context := make(map[string]interface{})
-	exec := newExecuter([]*compiledTemplate{compiled}, context, NewDefaultLocator())
-	bytes, e := exec.renderChunk(compiled.chunk)
+	bytes, e := compileAndExecute(source, context)
 
 	if e != nil {
-		t.Errorf("Unexpected exec error: %s", e)
+		t.Error(e.Error())
 		return
 	}
 
 	if string(bytes) != `<base href="http://localhost /><!--[if lte IE 6]></base><![endif]-->` {
 		t.Errorf("Incorrect base tag calculation: '%s': check test/config.json", bytes)
+	}
+}
+
+func TestWith(t *testing.T) {
+	source := `<% with parent %>$foo<% end_with %>`
+	context := make(map[string]interface{})
+	child := make(map[string]interface{})
+	child["foo"] = "bar"
+	context["parent"] = child
+	bytes, e := compileAndExecute(source, context)
+	if e != nil {
+		t.Error(e.Error())
+		return
+	}
+	if string(bytes) != "bar" {
+		t.Errorf("Expected 'foo' but got '%s'", bytes)
 	}
 }

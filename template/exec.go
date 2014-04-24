@@ -61,6 +61,7 @@ func (exec *executer) renderChunk(chunk *chunk) ([]byte, error) {
 		return exec.renderChunkBlock(chunk)
 	case CHUNK_LOOP:
 	case CHUNK_WITH:
+		return exec.renderChunkWith(chunk)
 	case CHUNK_IF:
 		return exec.renderChunkIf(chunk)
 	case CHUNK_LAYOUT:
@@ -152,6 +153,31 @@ func (exec *executer) renderBaseTag(ch *chunk) ([]byte, error) {
 	}
 	tag := `<base href="` + url + ` /><!--[if lte IE 6]></base><![endif]-->`
 	return []byte(tag), nil
+}
+
+func (exec *executer) renderChunkWith(ch *chunk) ([]byte, error) {
+	ctxChunk := ch.m["context"].(*chunk)
+	bodyChunk := ch.m["body"].(*chunk)
+
+	ctx, e := exec.eval(ctxChunk)
+	if e != nil {
+		return nil, e
+	}
+
+	// push this new context
+	exec.push(ctx)
+
+	bytes, e := exec.renderChunk(bodyChunk)
+	if e != nil {
+		return nil, e
+	}
+
+	_, e = exec.pop()
+	if e != nil {
+		return nil, e
+	}
+
+	return bytes, nil
 }
 
 // evalBlock evaluates a list of expressions in a block, which themselves are *chunk values. These
