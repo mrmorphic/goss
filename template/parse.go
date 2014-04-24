@@ -9,7 +9,7 @@ var comparisonOperator map[string]bool
 func init() {
 	// initialise comparison operators
 	comparisonOperator = make(map[string]bool)
-	for _, op := range []string{"==", "!=", "<", "<=", ">", ">="} {
+	for _, op := range []string{"==", "=", "!=", "<", "<=", ">", ">="} {
 		comparisonOperator[op] = true
 	}
 }
@@ -525,7 +525,7 @@ func (p *parser) parseComparison(topLevel bool) (*chunk, error) {
 
 	var kind chunkKind
 	switch tk.value {
-	case "==":
+	case "==", "=":
 		kind = CHUNK_EXPR_EQUAL
 	case "!=":
 		kind = CHUNK_EXPR_NOT_EQUAL
