@@ -3,7 +3,7 @@ package template
 import (
 	"errors"
 	"fmt"
-	//	"reflect"
+	"reflect"
 )
 
 type executer struct {
@@ -60,6 +60,7 @@ func (exec *executer) renderChunk(chunk *chunk) ([]byte, error) {
 	case CHUNK_BLOCK:
 		return exec.renderChunkBlock(chunk)
 	case CHUNK_LOOP:
+		return exec.renderChunkLoop(chunk)
 	case CHUNK_WITH:
 		return exec.renderChunkWith(chunk)
 	case CHUNK_IF:
@@ -178,6 +179,47 @@ func (exec *executer) renderChunkWith(ch *chunk) ([]byte, error) {
 	}
 
 	return bytes, nil
+}
+
+func (exec *executer) renderChunkLoop(ch *chunk) ([]byte, error) {
+	ctxChunk := ch.m["context"].(*chunk)
+	bodyChunk := ch.m["body"].(*chunk)
+
+	ctxIntf, e := exec.eval(ctxChunk)
+	if e != nil {
+		return nil, e
+	}
+
+	result := []byte{}
+
+	// we expect ctx to be a slice
+	ctxV := reflect.ValueOf(ctxIntf)
+	// @todo need to handle arrays as well?
+	if ctxV.Kind() != reflect.Slice && ctxV.Kind() != reflect.Array {
+		return nil, errors.New("loop context must be a slice")
+	}
+
+	for i := 0; i < ctxV.Len(); i++ {
+		// get the i-th element
+		el := ctxV.Index(i)
+
+		// make this element the context for the loop iteration
+		exec.push(el.Interface())
+
+		// render the chunk with the new context
+		bytes, e := exec.renderChunk(bodyChunk)
+		if e != nil {
+			return nil, e
+		}
+		result = append(result, bytes...)
+
+		_, e = exec.pop()
+		if e != nil {
+			return nil, e
+		}
+	}
+
+	return result, nil
 }
 
 // evalBlock evaluates a list of expressions in a block, which themselves are *chunk values. These

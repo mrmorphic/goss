@@ -223,3 +223,28 @@ func TestWith(t *testing.T) {
 		t.Errorf("Expected 'foo' but got '%s'", bytes)
 	}
 }
+
+func makeItem(title string) interface{} {
+	return map[string]interface{}{
+		"Title": title,
+	}
+}
+
+func TestLoop(t *testing.T) {
+	source := `[<% loop Items %>$Title<% end_loop %>]`
+	context := make(map[string]interface{})
+	items := make([]interface{}, 0)
+	items = append(items, makeItem("a"))
+	items = append(items, makeItem("b"))
+	items = append(items, makeItem("c"))
+	context["Items"] = items
+
+	bytes, e := compileAndExecute(source, context)
+	if e != nil {
+		t.Error(e.Error())
+		return
+	}
+	if string(bytes) != "[abc]" {
+		t.Errorf("Unexpected loop output: %s", bytes)
+	}
+}

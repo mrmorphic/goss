@@ -334,6 +334,8 @@ This section lists features of the SilverStripe templating language that have be
  *	variable substitutions: $foo, {$foo}
  *	function substitutions: $foo(args), {$foo(args)}, $foo(arg1, arg2)
  *	<% if cond %>...<% end_if%> , <% else %> variation
+ *	<% loop expr %>...<% end_loop %>
+ *	<% with expr %>...<% end_with %>
  *	operators: ||, &&, ==, !=, >, >=, <, <=, not
  *	numeric literals (no decimals)
  *	string literals (backslashes in strings not handled)
@@ -345,8 +347,6 @@ This section lists features of the SilverStripe templating language that have be
 ### Not implemented
 
 The following are parsed only:
- *	<% loop expr %>...<% end_loop %>
- *	<% with expr %>...<% end_with %>
  *	<% include %>, but not optional binding syntax
 
 
