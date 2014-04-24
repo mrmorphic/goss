@@ -22,8 +22,7 @@ type ContentController struct {
 
 func (c *ContentController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	templates := []string{"Page", c.Object.AsString("ClassName")}
-
-	e := template.RenderWith(w, templates, nil)
+	e := template.RenderWith(w, templates, c, nil, nil)
 
 	if e != nil {
 		ErrorHandler(w, e)
