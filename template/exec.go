@@ -85,7 +85,7 @@ func (exec *executer) renderChunk(chunk *chunk) ([]byte, error) {
 	case CHUNK_BASE_TAG:
 		return exec.renderBaseTag(chunk)
 	case CHUNK_INCLUDE:
-		// @todo
+		return exec.renderInclude(chunk)
 	case CHUNK_BLOCK:
 		return exec.renderChunkBlock(chunk)
 	case CHUNK_LOOP:
@@ -260,6 +260,12 @@ func (exec *executer) renderRequire(ch *chunk) ([]byte, error) {
 		exec.require.Javascript(path)
 	}
 	return []byte{}, nil
+}
+
+func (exec *executer) renderInclude(ch *chunk) ([]byte, error) {
+	compiled := ch.m["compiled"].(*compiledTemplate)
+
+	return exec.renderChunk(compiled.chunk)
 }
 
 // evalBlock evaluates a list of expressions in a block, which themselves are *chunk values. These

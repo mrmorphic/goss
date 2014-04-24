@@ -292,3 +292,18 @@ func TestRequireThemedCSS(t *testing.T) {
 		t.Errorf("Expecting to see test.js embedded before body")
 	}
 }
+
+func TestInclude(t *testing.T) {
+	source := `[<% include Footer %>]`
+	context := map[string]interface{}{}
+
+	b, e := compileAndExecute(source, context)
+	if e != nil {
+		t.Error(e.Error())
+		return
+	}
+	expected := "[test footer]"
+	if string(b) != expected {
+		t.Errorf("Expected '%s', got '%s'", expected, b)
+	}
+}
