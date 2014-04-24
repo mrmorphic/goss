@@ -7,6 +7,8 @@ import (
 	"reflect"
 )
 
+// executer will render a template using a context, data locater and requirements provider. It returns a rendered
+// template.
 type executer struct {
 	// context is handled by a stack. The bottom of the stack is index 0. Expressions are evaluated in the context
 	// of the top of the stack.
@@ -29,10 +31,12 @@ func newExecuter(templates []*compiledTemplate, context interface{}, locator Dat
 	return exec
 }
 
+// push a context onto the context stack
 func (exec *executer) push(context interface{}) {
 	exec.contextStack = append(exec.contextStack, context)
 }
 
+// pop a context off the context stack. It will return an error if the context stack is empty.
 func (exec *executer) pop() (interface{}, error) {
 	numItems := len(exec.contextStack)
 	if numItems == 0 {
@@ -81,6 +85,7 @@ func (exec *executer) renderChunk(chunk *chunk) ([]byte, error) {
 	case CHUNK_BASE_TAG:
 		return exec.renderBaseTag(chunk)
 	case CHUNK_INCLUDE:
+		// @todo
 	case CHUNK_BLOCK:
 		return exec.renderChunkBlock(chunk)
 	case CHUNK_LOOP:
@@ -95,17 +100,6 @@ func (exec *executer) renderChunk(chunk *chunk) ([]byte, error) {
 		return exec.renderRequire(chunk)
 	case CHUNK_EXPR_VARFUNC:
 		return exec.renderChunkVarFunc(chunk)
-	case CHUNK_EXPR_NUMBER:
-	case CHUNK_EXPR_STRING:
-	case CHUNK_EXPR_NOT:
-	case CHUNK_EXPR_OR:
-	case CHUNK_EXPR_AND:
-	case CHUNK_EXPR_EQUAL:
-	case CHUNK_EXPR_NOT_EQUAL:
-	case CHUNK_EXPR_LESS:
-	case CHUNK_EXPR_LESS_EQUAL:
-	case CHUNK_EXPR_GTR:
-	case CHUNK_EXPR_GTR_EQUAL:
 	}
 	return nil, fmt.Errorf("could not render chunk of unknown kind '%s'", chunk.kind)
 }
