@@ -343,6 +343,10 @@ This section lists features of the SilverStripe templating language that have be
  *	main templates and main/layout arrangements, $Layout
  *	comments
  *	<% base_tag %>
+ *	requirements injection
+ *	<% require ... %>
+ *	<% cached %> blocks are parsed correctly and contents substituted, with
+ 	no actual caching (compiled templates are, however, cached)
  
 ### Not implemented
 
@@ -353,14 +357,13 @@ The following are parsed only:
 The following are not implemented. They are listed in approximate priority order for implementaton.
 
  *	else_if
- *	<% require ... %>
  *	\$var
- *	requirements injection
  *	shortcode handling
  *	backslash handling in string literals
  *	<%t ... %>
  *	<% include %> allows for an optional binding syntax for the included
 	template. This extra syntax is not implemented.
+ *	requirements combining / optimizing
  *	deprecated syntax of using identifiers without $ or double quotes
  *	<% cached %> blocks are parsed and handled correctly semantically, but
 	there is no caching of the fragments, and any expressions in the
