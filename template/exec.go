@@ -323,6 +323,7 @@ func (exec *executer) eval(expr *chunk) (interface{}, error) {
 	case CHUNK_EXPR_NUMBER, CHUNK_EXPR_STRING:
 		return expr.m["value"], nil
 	case CHUNK_EXPR_NOT:
+		return exec.evalNot(expr)
 	case CHUNK_EXPR_OR:
 		return exec.evalBoolFuncN(expr, func(p1 bool, p2 bool) (bool, bool) {
 			return p1 || p2, !(p1 || p2)
@@ -371,6 +372,22 @@ func (exec *executer) evalVarFunc(expr *chunk) (interface{}, error) {
 		}
 		return v, nil
 	}
+}
+
+func (exec *executer) evalNot(expr *chunk) (interface{}, error) {
+	valueChunk := expr.m["value"].(*chunk)
+
+	value, e := exec.eval(valueChunk)
+	if e != nil {
+		return nil, e
+	}
+
+	b, e := exec.boolOf(value)
+	if e != nil {
+		return nil, newTemplateError(fmt.Sprintf("If condition must be boolean '%s'", valueChunk.printable(0)), expr)
+	}
+
+	return !b, e
 }
 
 // evaluate a boolean function expr with 2 or more arguments.
