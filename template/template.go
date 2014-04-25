@@ -129,7 +129,8 @@ func compileTemplate(path string, mainTemplate bool) (*compiledTemplate, error) 
 	}
 
 	// read from path
-	s, e := ioutil.ReadFile(configuration.templatesPath + path + ".ss")
+	filename := configuration.templatesPath + path + ".ss"
+	s, e := ioutil.ReadFile(filename)
 	if e != nil {
 		return nil, e
 	}
@@ -137,7 +138,7 @@ func compileTemplate(path string, mainTemplate bool) (*compiledTemplate, error) 
 	// convert the returned []byte to a string, so that the parsing will handle UTF8 characters.
 	source := string(s)
 
-	result, e = newParser().parseSource(source, mainTemplate)
+	result, e = newParser().parseSource(source, mainTemplate, filename)
 	if e != nil {
 		return nil, e
 	}
