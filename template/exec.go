@@ -232,6 +232,11 @@ func (exec *executer) renderChunkLoop(ch *chunk) ([]byte, error) {
 		return nil, e
 	}
 
+	// if the value evaluates to nil, don't execute the loop
+	if ctxIntf == nil {
+		return []byte{}, nil
+	}
+
 	result := []byte{}
 
 	// we expect ctx to be a slice
