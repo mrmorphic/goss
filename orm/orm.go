@@ -48,6 +48,8 @@ func (obj *DataObject) AsString(fieldName string) string {
 	case "*sql.NullString":
 		s := iv.(*sql.NullString)
 		return s.String
+	case "string":
+		return iv.(string)
 	default:
 		return "don't know this type: " + t.String()
 	}
@@ -70,12 +72,20 @@ func (obj *DataObject) AsInt(fieldName string) (int, error) {
 	return 0, errors.New("AsInt doesn't understand type " + t.String())
 }
 
+func (obj *DataObject) Set(fieldName string, value interface{}) {
+	obj.fields[fieldName] = value
+}
+
 func (obj *DataObject) Debug() string {
 	s := "DataObject:\n"
 	for f, v := range obj.fields {
 		s += fmt.Sprintf("  %s: %s\n", f, v)
 	}
 	return s
+}
+
+func NewDataObject() *DataObject {
+	return &DataObject{map[string]interface{}{}}
 }
 
 func DataObjectFromRow(r *sql.Rows) (obj *DataObject, e error) {

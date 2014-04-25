@@ -2,6 +2,7 @@ package template
 
 import (
 	"fmt"
+	"github.com/mrmorphic/goss/orm"
 	"reflect"
 )
 
@@ -23,27 +24,42 @@ func NewDefaultLocator() DataLocator {
 func (d *DefaultLocator) Locate(context interface{}, name string, args []interface{}) (interface{}, error) {
 	fmt.Printf("Locate %s (%s) in %s\n", name, args, context)
 	ctx := reflect.ValueOf(context)
+	ctxElem := ctx
 	var value interface{}
 
+	if ctx.Kind() == reflect.Ptr {
+		// dereference before the switch
+		ctxElem = ctx.Elem()
+	}
+
+	typ := ctx.Type().Name()
+	fmt.Printf("type is %s\n", typ)
 	// interpret the context based on what kind of object we're passed. The intent is to look up the name in the context,
 	// and populate 'value'.
 	switch {
 	// context implements DataLocator
 	case ctx.Kind() == reflect.Map:
+		fmt.Printf("...is a map\n")
 		// @todo this is too restrictive. What we really want is to ensure that context is a map with a string key, and any type.
 		m, ok := context.(map[string]interface{})
 		if !ok {
 			panic("locater: map must be map[string]interface{}")
 		}
 		value = m[name]
+	case ctxElem.Kind() == reflect.Struct && typ == "DataObject":
+		fmt.Printf("Locate found DataObject\n")
+		value = ctx.Interface().(*orm.DataObject).FieldByName(name)
 	case ctx.Kind() == reflect.Struct:
-		// struct
+		// struct. look up field or method of that name
+		value = ""
+		fmt.Printf("...is a struct\n")
 	case ctx.Kind() == reflect.Func:
 		// if the context itself is a function, call the function and use it's value recursively. This would let
 		// the caller provide a closure that would produce the values.
 		// other value
 	}
 
+	fmt.Printf("kind is %s\n", ctx.Kind())
 	// Now we have the value at that place, see what we can do with it:
 	// - if it's a function, execute it with the parameters.
 	// - if it's a value, return it.
