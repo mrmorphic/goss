@@ -30,7 +30,7 @@ func (r *responseCapture) WriteHeader(status int) {
 
 // utility function to compile and execute template source using the given context
 func compileAndExecute(source string, context interface{}) ([]byte, error) {
-	compiled, e := newParser().parseSource(source, true)
+	compiled, e := newParser().parseSource(source, true, "")
 	if e != nil {
 		return nil, e
 	}
@@ -56,7 +56,7 @@ func testSourceList(sources map[string]string, context interface{}, t *testing.T
 
 // test source that contains no <% or $. We expect just a single literal.
 func TestLiteralOnly(t *testing.T) {
-	_, e := newParser().parseSource("<html><body>simple</body></html>", true)
+	_, e := newParser().parseSource("<html><body>simple</body></html>", true, "")
 	if e != nil {
 		t.Error(e.Error())
 		return
@@ -101,7 +101,7 @@ func TestVariants(t *testing.T) {
 
 	for _, s := range sources {
 		fmt.Printf("scanning source: %s\n", s)
-		scanner := newScanner(s)
+		scanner := newScanner(s, "")
 		for {
 			tk, _ := scanner.scanToken()
 			fmt.Printf("...%s\n", tk.printable())
@@ -110,7 +110,7 @@ func TestVariants(t *testing.T) {
 			}
 		}
 		fmt.Printf("parsing source: %s\n", s)
-		_, e := newParser().parseSource(s, true)
+		_, e := newParser().parseSource(s, true, "")
 		if e != nil {
 			t.Error(e.Error())
 			return
@@ -129,7 +129,7 @@ func TestExec(t *testing.T) {
 	source := `this is some markup for $name, with gratuitous nested var: {$parent.child}. $function1(name)  $function0
 	<%if v1==v2 %>rhubarb equal bananas<% else %>of course a banana is not rhubarb.<% end_if %>  we like food
 	$salutation(title, name)`
-	compiled, e := newParser().parseSource(source, true)
+	compiled, e := newParser().parseSource(source, true, "")
 
 	if e != nil {
 		t.Error(e.Error())
@@ -198,7 +198,7 @@ func TestComment(t *testing.T) {
 	testSourceList(sources, context, t)
 
 	// now test for failure parsing an unclosed comment
-	_, e := newParser().parseSource("abc<%-- comment", true)
+	_, e := newParser().parseSource("abc<%-- comment", true, "")
 	if e == nil {
 		t.Error("Expected error about unterminated comment, didn't get an error")
 	}
@@ -314,6 +314,22 @@ func TestEquals(t *testing.T) {
 	}
 	context := map[string]interface{}{}
 	context["foo"] = "bar"
+
+	testSourceList(sources, context, t)
+}
+
+// Test for a variable substitution following by an if-not. Case seen in debugging:
+//	$ClassName<% if not $Menu(2) %>...
+func TestVarIfNot(t *testing.T) {
+	sources := map[string]string{
+		`$var<% if not $foo(2) %>x<% end_if %>`: "v",  // case where cond is false
+		`$var<% if not $foo(1) %>x<% end_if %>`: "vx", // case where cond is true
+	}
+	context := map[string]interface{}{}
+	context["var"] = "v"
+	context["foo"] = func(i string) bool {
+		return i == "2"
+	}
 
 	testSourceList(sources, context, t)
 }

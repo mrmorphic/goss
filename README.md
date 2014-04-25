@@ -337,7 +337,7 @@ This section lists features of the SilverStripe templating language that have be
  *	<% loop expr %>...<% end_loop %>
  *	<% with expr %>...<% end_with %>
  *	<% include %>, but not optional binding syntax
- *	operators: ||, &&, ==, !=, >, >=, <, <=, not
+ *	operators: ||, &&, ==, !=, >, >=, <, <=, not, = as synonym for ==
  *	numeric literals (no decimals)
  *	string literals (backslashes in strings not handled)
  *	chained variable and functions, eg $foo.bar, $foo().bar("abc")
