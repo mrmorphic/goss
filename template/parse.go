@@ -25,9 +25,9 @@ func newParser() *parser {
 
 // parseSource converts the source of a template into a compiled template object. The approach taken is to repetitively
 // reduce the source string into a tree of chunks, with the template being a single chunk at the top.
-func (p *parser) parseSource(source string, mainTemplate bool) (*compiledTemplate, error) {
+func (p *parser) parseSource(source string, mainTemplate bool, filename string) (*compiledTemplate, error) {
 	p.mainTemplate = mainTemplate
-	p.scanner = newScanner(source)
+	p.scanner = newScanner(source, filename)
 	result := newCompiledTemplate()
 
 	chunk, e := p.parseContent()
@@ -43,7 +43,7 @@ func (p *parser) parseSource(source string, mainTemplate bool) (*compiledTemplat
 		return nil, e
 	}
 	if t.kind != TOKEN_END_SOURCE {
-		return nil, fmt.Errorf("Expected end of template, but got '%s'", t.printable())
+		return nil, newTemplateError(fmt.Sprintf("Expected end of template, but got '%s'", t.printable()), p.scanner)
 	}
 
 	fmt.Printf("Parsed result: \n%s\n", chunk.printable(0))
@@ -69,7 +69,7 @@ loop:
 
 		switch {
 		case tk.kind == TOKEN_LITERAL:
-			chunks = append(chunks, newChunkLiteral(tk.value))
+			chunks = append(chunks, newChunkLiteral(tk.value, p.scanner))
 		case tk.isSym("<%"):
 			// look at the next token
 			tk2, e := p.scanner.peek()
@@ -100,7 +100,7 @@ loop:
 				return nil, e
 			}
 			if !tk2.isSym("$") {
-				return nil, fmt.Errorf("Expected '$' after '{'")
+				return nil, newTemplateError("Expected '$' after '{'", p.scanner)
 			}
 
 			// now parse the variable or function
@@ -137,7 +137,7 @@ loop:
 		}
 	}
 
-	return newChunkBlock(chunks), nil
+	return newChunkBlock(chunks, p.scanner), nil
 }
 
 // read one token, and check that it is of the required kind. Return an error on scanning error, or if the kind doesn't match.
@@ -147,7 +147,7 @@ func (p *parser) expectKind(kind tokenKind) error {
 		return e
 	}
 	if tk.kind != kind {
-		return fmt.Errorf("Expected token of kind '%s', got '%s' instead.", kind, tk.printable())
+		return newTemplateError(fmt.Sprintf("Expected token of kind '%s', got '%s' instead.", kind, tk.printable()), p.scanner)
 	}
 	return nil
 }
@@ -159,10 +159,10 @@ func (p *parser) expectSym(s string) error {
 		return e
 	}
 	if tk.kind != TOKEN_SYMBOL {
-		return fmt.Errorf("Expected token of kind '%s (%s)', got '%s' instead.", TOKEN_SYMBOL, s, tk.printable())
+		return newTemplateError(fmt.Sprintf("Expected token of kind '%s (%s)', got '%s' instead.", TOKEN_SYMBOL, s, tk.printable()), p.scanner)
 	}
 	if tk.value != s {
-		return fmt.Errorf("Expected symbol '%s', got '%s' instead.", s, tk.printable())
+		return newTemplateError(fmt.Sprintf("Expected symbol '%s', got '%s' instead.", s, tk.printable()), p.scanner)
 	}
 	return nil
 }
@@ -174,10 +174,10 @@ func (p *parser) expectIdent(s string) error {
 		return e
 	}
 	if tk.kind != TOKEN_IDENT {
-		return fmt.Errorf("Expected token of kind '%s (%s)', got '%s' instead.", TOKEN_IDENT, s, tk.printable())
+		return newTemplateError(fmt.Sprintf("Expected token of kind '%s (%s)', got '%s' instead.", TOKEN_IDENT, s, tk.printable()), p.scanner)
 	}
 	if tk.value != s {
-		return fmt.Errorf("Expected symbol '%s', got '%s' instead.", s, tk.printable())
+		return newTemplateError(fmt.Sprintf("Expected symbol '%s', got '%s' instead.", s, tk.printable()), p.scanner)
 	}
 	return nil
 }
@@ -219,7 +219,7 @@ func (p *parser) parseTag() (*chunk, error) {
 		if e != nil {
 			return nil, e
 		}
-		return newChunkBaseTag(), nil
+		return newChunkBaseTag(p.scanner), nil
 	case tk.isIdent("t"):
 		return p.parseTranslation()
 	case tk.isIdent("cached"):
@@ -227,7 +227,7 @@ func (p *parser) parseTag() (*chunk, error) {
 	}
 
 	// shouldn't be anything else starting a tag
-	return nil, fmt.Errorf("Invalid token for a tag '%s'", tk.printable())
+	return nil, newTemplateError(fmt.Sprintf("Invalid token for a tag '%s'", tk.printable()), p.scanner)
 }
 
 // Parse an include tag. The 'include' keyword has already been scanned. In it's simplest form, this will just have another identifier which
@@ -240,7 +240,7 @@ func (p *parser) parseInclude() (*chunk, error) {
 
 	// we expect an identifier next, which is the name of the include template.
 	if tk.kind != TOKEN_IDENT {
-		return nil, fmt.Errorf("Expected identifier for the included template, got '%s'", tk.printable())
+		return nil, newTemplateError(fmt.Sprintf("Expected identifier for the included template, got '%s'", tk.printable()), p.scanner)
 	}
 
 	// parse the included file
@@ -249,7 +249,7 @@ func (p *parser) parseInclude() (*chunk, error) {
 	compiled, e := compileTemplate(path, false)
 
 	if e != nil {
-		return nil, fmt.Errorf("In include file %s: %s", path, e)
+		return nil, newTemplateError(fmt.Sprintf("In include file %s: %s", path, e), p.scanner)
 	}
 
 	// @todo parse the variable bindings afterwards and put these in the chunk as well.
@@ -259,7 +259,7 @@ func (p *parser) parseInclude() (*chunk, error) {
 		return nil, e
 	}
 
-	return newChunkInclude(compiled), nil
+	return newChunkInclude(compiled, p.scanner), nil
 }
 
 func (p *parser) parseIf() (*chunk, error) {
@@ -298,7 +298,7 @@ func (p *parser) parseIf() (*chunk, error) {
 
 	switch {
 	case tk.isIdent("else_if"):
-		return nil, fmt.Errorf("else_if not implemented yet")
+		return nil, newTemplateError("else_if not implemented yet", p.scanner)
 
 	case tk.isIdent("else"):
 		e = p.expectSym("%>")
@@ -320,7 +320,7 @@ func (p *parser) parseIf() (*chunk, error) {
 		return nil, e
 	}
 
-	return newChunkIf(cond, truePart, falsePart), nil
+	return newChunkIf(cond, truePart, falsePart, p.scanner), nil
 }
 
 // parse a <% loop %> ... <% end_loop %> structure. "<% loop" has already been parsed.
@@ -345,7 +345,7 @@ func (p *parser) parseLoop() (*chunk, error) {
 		return nil, e
 	}
 
-	return newChunkLoop(loopContext, loopBody), nil
+	return newChunkLoop(loopContext, loopBody, p.scanner), nil
 }
 
 // parse a <% with %> ... <% end_with %> structure. "<% with" has already been parsed.
@@ -370,7 +370,7 @@ func (p *parser) parseWith() (*chunk, error) {
 		return nil, e
 	}
 
-	return newChunkWith(context, body), nil
+	return newChunkWith(context, body, p.scanner), nil
 }
 
 // parse name ( string ) %>
@@ -381,11 +381,11 @@ func (p *parser) parseRequire() (*chunk, error) {
 		return nil, e
 	}
 	if tk.kind != TOKEN_IDENT {
-		return nil, fmt.Errorf("Expected identifier, got '%s'", tk.printable())
+		return nil, newTemplateError(fmt.Sprintf("Expected identifier, got '%s'", tk.printable()), p.scanner)
 	}
 
 	if tk.value != "css" && tk.value != "themedCSS" && tk.value != "javascript" {
-		return nil, fmt.Errorf("Require expected css, themedCSS or javascript, but got %s", tk.value)
+		return nil, newTemplateError(fmt.Sprintf("Require expected css, themedCSS or javascript, but got %s", tk.value), p.scanner)
 	}
 
 	e = p.expectSym("(")
@@ -398,7 +398,7 @@ func (p *parser) parseRequire() (*chunk, error) {
 		return nil, e
 	}
 	if tk2.kind != TOKEN_STRING {
-		return nil, fmt.Errorf("Require expected a string path, got %s", tk2.printable())
+		return nil, newTemplateError(fmt.Sprintf("Require expected a string path, got %s", tk2.printable()), p.scanner)
 	}
 
 	e = p.expectSym(")")
@@ -410,7 +410,7 @@ func (p *parser) parseRequire() (*chunk, error) {
 	if e != nil {
 		return nil, e
 	}
-	return newChunkRequire(tk.value, tk2.value), nil
+	return newChunkRequire(tk.value, tk2.value, p.scanner), nil
 }
 
 func (p *parser) parseTranslation() (*chunk, error) {
@@ -476,7 +476,7 @@ func (p *parser) parseExpr(topLevel bool) (*chunk, error) {
 
 		// ensure we don't change operators
 		if op != "" && op != tk.value {
-			return nil, fmt.Errorf("Cannot mix || and && in a single expression")
+			return nil, newTemplateError("Cannot mix || and && in a single expression", p.scanner)
 		}
 		op = tk.value
 
@@ -497,7 +497,7 @@ func (p *parser) parseExpr(topLevel bool) (*chunk, error) {
 	if op == "&&" {
 		kind = CHUNK_EXPR_AND
 	}
-	return newChunkExprNary(kind, args), nil
+	return newChunkExprNary(kind, args, p.scanner), nil
 }
 
 // Parse a comparison of two terms using ==, !=, <, <=, >, <=
@@ -543,7 +543,7 @@ func (p *parser) parseComparison(topLevel bool) (*chunk, error) {
 	args = append(args, leftTerm)
 	args = append(args, rightTerm)
 
-	return newChunkExprNary(kind, args), nil
+	return newChunkExprNary(kind, args, p.scanner), nil
 }
 
 // Parse an expression term. This handles many forms:
@@ -562,10 +562,10 @@ func (p *parser) parseTerm(topLevel bool) (*chunk, error) {
 
 	switch {
 	case tk.kind == TOKEN_NUMBER:
-		return newChunkExprValue(CHUNK_EXPR_NUMBER, tk.value), nil
+		return newChunkExprValue(CHUNK_EXPR_NUMBER, tk.value, p.scanner), nil
 
 	case tk.kind == TOKEN_STRING:
-		return newChunkExprValue(CHUNK_EXPR_STRING, tk.value), nil
+		return newChunkExprValue(CHUNK_EXPR_STRING, tk.value, p.scanner), nil
 
 	case tk.isSym("("):
 		// nested expression
@@ -592,7 +592,7 @@ func (p *parser) parseTerm(topLevel bool) (*chunk, error) {
 			if e != nil {
 				return nil, e
 			}
-			return newChunkExprValue(CHUNK_EXPR_NOT, sub), nil
+			return newChunkExprValue(CHUNK_EXPR_NOT, sub, p.scanner), nil
 		default:
 			// put the identifier back, and ask to parse a variable
 			p.scanner.putBack(tk)
@@ -610,7 +610,7 @@ func (p *parser) parseVariableOrFn() (*chunk, error) {
 		return nil, e
 	}
 	if tk.kind != TOKEN_IDENT {
-		return nil, fmt.Errorf("Expected identifier for a variable or function, got '%s'", tk.printable())
+		return nil, newTemplateError(fmt.Sprintf("Expected identifier for a variable or function, got '%s'", tk.printable()), p.scanner)
 	}
 
 	// check for open parentheses, this indicates a function call. An error from the scanner indicates that
@@ -653,10 +653,10 @@ func (p *parser) parseVariableOrFn() (*chunk, error) {
 
 	// $Layout is a special case. It's just an empty chunk.
 	if tk.value == "Layout" && p.mainTemplate {
-		return newChunk(CHUNK_LAYOUT), nil
+		return newChunk(CHUNK_LAYOUT, p.scanner), nil
 	}
 
-	return newChunkExprVarFunc(tk.value, params, chained), nil
+	return newChunkExprVarFunc(tk.value, params, chained, p.scanner), nil
 }
 
 // parse a comma-delimited list of expressions, returning the values as a CHUNK_BLOCK
@@ -671,7 +671,7 @@ func (p *parser) parseExpressionList(allowEmpty bool) (*chunk, error) {
 			return nil, e
 		}
 		if tk.isSym(")") {
-			return newChunkBlock(chunks), nil
+			return newChunkBlock(chunks, p.scanner), nil
 		} else {
 			p.scanner.putBack(tk)
 		}
@@ -704,5 +704,5 @@ func (p *parser) parseExpressionList(allowEmpty bool) (*chunk, error) {
 		chunks = append(chunks, expr)
 	}
 
-	return newChunkBlock(chunks), nil
+	return newChunkBlock(chunks, p.scanner), nil
 }

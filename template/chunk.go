@@ -41,50 +41,55 @@ const (
 type chunk struct {
 	kind chunkKind
 	m    map[string]interface{}
+
+	// populated by the parser during construction, these are used for error reporting when actually executing chunk
+	file string
+	line int
 }
 
 // Create new generic chunk of a kind, but no map values.
-func newChunk(kind chunkKind) *chunk {
-	return &chunk{kind: kind, m: make(map[string]interface{})}
+func newChunk(kind chunkKind, reporter errorLocationReporter) *chunk {
+	file, line := reporter.errorLocation()
+	return &chunk{kind: kind, m: make(map[string]interface{}), file: file, line: line}
 }
 
 // Create a chunk representing a literal piece of markup to be output without further processing.
-func newChunkLiteral(literal string) *chunk {
-	r := newChunk(CHUNK_LITERAL)
+func newChunkLiteral(literal string, reporter errorLocationReporter) *chunk {
+	r := newChunk(CHUNK_LITERAL, reporter)
 	r.m["content"] = literal
 	return r
 }
 
 // Create a chunk for '<% base_tag %>' rendering.
-func newChunkBaseTag() *chunk {
-	return newChunk(CHUNK_BASE_TAG)
+func newChunkBaseTag(reporter errorLocationReporter) *chunk {
+	return newChunk(CHUNK_BASE_TAG, reporter)
 }
 
 // Create a chunk for '<% include ... %>' rendering.
-func newChunkInclude(c *compiledTemplate) *chunk {
-	r := newChunk(CHUNK_INCLUDE)
+func newChunkInclude(c *compiledTemplate, reporter errorLocationReporter) *chunk {
+	r := newChunk(CHUNK_INCLUDE, reporter)
 	r.m["compiled"] = c
 	return r
 }
 
 // Create a block chunk, which is a linear sequence of sub-chunks.
-func newChunkBlock(chunks []*chunk) *chunk {
-	r := newChunk(CHUNK_BLOCK)
+func newChunkBlock(chunks []*chunk, reporter errorLocationReporter) *chunk {
+	r := newChunk(CHUNK_BLOCK, reporter)
 	r.m["chunks"] = chunks
 	return r
 }
 
 // Create a chunk for '<% require ... %>' rendering
-func newChunkRequire(rType string, path string) *chunk {
-	r := newChunk(CHUNK_REQUIRE)
+func newChunkRequire(rType string, path string, reporter errorLocationReporter) *chunk {
+	r := newChunk(CHUNK_REQUIRE, reporter)
 	r.m["type"] = rType
 	r.m["path"] = path
 	return r
 }
 
 // Create a chunk for '<% if ... %>...<% end_if %>' rendering
-func newChunkIf(condition *chunk, truePart *chunk, falsePart *chunk) *chunk {
-	r := newChunk(CHUNK_IF)
+func newChunkIf(condition *chunk, truePart *chunk, falsePart *chunk, reporter errorLocationReporter) *chunk {
+	r := newChunk(CHUNK_IF, reporter)
 	r.m["condition"] = condition
 	r.m["truePart"] = truePart
 	r.m["falsePart"] = falsePart
@@ -92,16 +97,16 @@ func newChunkIf(condition *chunk, truePart *chunk, falsePart *chunk) *chunk {
 }
 
 // Create a chunk for '<% loop ... %>...<% end_loop %>' rendering.
-func newChunkLoop(context *chunk, body *chunk) *chunk {
-	r := newChunk(CHUNK_LOOP)
+func newChunkLoop(context *chunk, body *chunk, reporter errorLocationReporter) *chunk {
+	r := newChunk(CHUNK_LOOP, reporter)
 	r.m["context"] = context
 	r.m["body"] = body
 	return r
 }
 
 // Create a chunk for '<% with ... %>...<% end_with %>' rendering.
-func newChunkWith(context *chunk, body *chunk) *chunk {
-	r := newChunk(CHUNK_WITH)
+func newChunkWith(context *chunk, body *chunk, reporter errorLocationReporter) *chunk {
+	r := newChunk(CHUNK_WITH, reporter)
 	r.m["context"] = context
 	r.m["body"] = body
 	return r
@@ -109,8 +114,8 @@ func newChunkWith(context *chunk, body *chunk) *chunk {
 
 // Create a new chunk representing a function call. 'name' is the name of the function. 'params' is a CHUNK_BLOCK
 // containing a list of expression chunks. 'chained' is a single chunk to evaluate once we've evaluated this one.
-func newChunkExprVarFunc(name string, params *chunk, chained *chunk) *chunk {
-	r := newChunk(CHUNK_EXPR_VARFUNC)
+func newChunkExprVarFunc(name string, params *chunk, chained *chunk, reporter errorLocationReporter) *chunk {
+	r := newChunk(CHUNK_EXPR_VARFUNC, reporter)
 	r.m["name"] = name
 	r.m["params"] = params
 	r.m["chained"] = chained
@@ -118,15 +123,15 @@ func newChunkExprVarFunc(name string, params *chunk, chained *chunk) *chunk {
 }
 
 // Can be used for a variety of chunk kinds where there is only a single value.
-func newChunkExprValue(kind chunkKind, value interface{}) *chunk {
-	r := newChunk(kind)
+func newChunkExprValue(kind chunkKind, value interface{}, reporter errorLocationReporter) *chunk {
+	r := newChunk(kind, reporter)
 	r.m["value"] = value
 	return r
 }
 
 // Create a chunk for an expression chunk that has a number of arguments.
-func newChunkExprNary(kind chunkKind, args []*chunk) *chunk {
-	r := newChunk(kind)
+func newChunkExprNary(kind chunkKind, args []*chunk, reporter errorLocationReporter) *chunk {
+	r := newChunk(kind, reporter)
 	r.m["args"] = args
 	return r
 }
@@ -163,4 +168,9 @@ func (c *chunk) printable(nestLevel int) string {
 		}
 	}
 	return result
+}
+
+// implement errorLocationReporter
+func (c *chunk) errorLocation() (string, int) {
+	return c.file, c.line
 }

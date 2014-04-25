@@ -101,7 +101,7 @@ func (exec *executer) renderChunk(chunk *chunk) ([]byte, error) {
 	case CHUNK_EXPR_VARFUNC:
 		return exec.renderChunkVarFunc(chunk)
 	}
-	return nil, fmt.Errorf("could not render chunk of unknown kind '%s'", chunk.kind)
+	return nil, newTemplateError(fmt.Sprintf("could not render chunk of unknown kind '%s'", chunk.kind), chunk)
 }
 
 func (exec *executer) renderChunkBlock(ch *chunk) ([]byte, error) {
@@ -216,7 +216,7 @@ func (exec *executer) renderChunkLoop(ch *chunk) ([]byte, error) {
 	ctxV := reflect.ValueOf(ctxIntf)
 	// @todo need to handle arrays as well?
 	if ctxV.Kind() != reflect.Slice && ctxV.Kind() != reflect.Array {
-		return nil, errors.New("loop context must be a slice")
+		return nil, newTemplateError("loop context must be a slice", ch)
 	}
 
 	for i := 0; i < ctxV.Len(); i++ {
@@ -317,7 +317,7 @@ func (exec *executer) eval(expr *chunk) (interface{}, error) {
 		CHUNK_EXPR_GTR_EQUAL:
 		return exec.evalCompare(expr)
 	}
-	return nil, fmt.Errorf("Cannot evaluate a non-expression chunk: %s", expr.kind)
+	return nil, newTemplateError(fmt.Sprintf("Cannot evaluate a non-expression chunk: %s", expr.kind), expr)
 }
 
 func (exec *executer) evalVarFunc(expr *chunk) (interface{}, error) {
@@ -436,7 +436,7 @@ func (exec *executer) evalCompare(expr *chunk) (interface{}, error) {
 		return s1 >= s2, nil
 	}
 
-	return nil, fmt.Errorf("Invalid comparison operator: %s\n", expr.kind)
+	return nil, newTemplateError(fmt.Sprintf("Invalid comparison operator: %s\n", expr.kind), expr)
 }
 
 func (exec *executer) isInt(v interface{}) bool {

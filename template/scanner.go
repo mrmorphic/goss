@@ -1,8 +1,6 @@
 package template
 
 import (
-	"errors"
-	"fmt"
 	"strings"
 )
 
@@ -59,10 +57,16 @@ type scanner struct {
 
 	// tells the scanner if we are in a template tag or not, which effects how we scan
 	inTemplateTag bool
+
+	// name of file being scanned, for error reporting
+	fileName string
+
+	// line number of scanner, for error reporting
+	lineNo int
 }
 
-func newScanner(s string) *scanner {
-	return &scanner{source: s}
+func newScanner(s string, file string) *scanner {
+	return &scanner{source: s, fileName: file, lineNo: 1}
 }
 
 const (
@@ -89,10 +93,14 @@ func (sc *scanner) scanToken() (*token, error) {
 				sc.source = sc.source[2:]
 				lit += "%>"
 				return newToken(TOKEN_SYMBOL, "%>", lit, r), nil
-			case sc.source[0] == ' ':
+			case sc.source[0] == ' ', sc.source[0] == '\t':
 				// space; ignore while in template
+				lit += sc.source[0:1]
 				sc.source = sc.source[1:]
-				lit += " "
+			case sc.source[0] == '\n':
+				sc.source = sc.source[1:]
+				sc.lineNo++
+				lit += "\n"
 			case strings.Contains(letters+"_", sc.source[0:1]):
 				// identifier
 				ident := ""
@@ -139,7 +147,7 @@ func (sc *scanner) scanToken() (*token, error) {
 					lsr := len(sc.source)
 					if lsr < 4 {
 						sc.source = lit + sc.source // put it back
-						return nil, fmt.Errorf("Unterminated <%-- comment")
+						return nil, newTemplateError("Unterminated <%-- comment", sc)
 					}
 					if sc.source[0:4] == "--%>" {
 						lit += "--%>"
@@ -187,6 +195,10 @@ func (sc *scanner) scanToken() (*token, error) {
 						} else {
 							break
 						}
+					}
+
+					if sc.source[0] == '\n' {
+						sc.lineNo++
 					}
 
 					// just copy the char over
@@ -241,7 +253,7 @@ func (sc *scanner) scanStringLiteral(lit string, r bool) (*token, error) {
 		if lsr == 0 {
 			// an unterminated string
 			sc.source = lit + sc.source // put it back
-			return nil, errors.New("Unterminated string")
+			return nil, newTemplateError("Unterminated string", sc)
 		}
 
 		if sc.source[0:1] == delimiter {
@@ -255,4 +267,9 @@ func (sc *scanner) scanStringLiteral(lit string, r bool) (*token, error) {
 		sc.source = sc.source[1:]
 	}
 	return newToken(TOKEN_STRING, str, lit, r), nil
+}
+
+// Implements errorLocationReporter, just returns current scan point
+func (sc *scanner) errorLocation() (string, int) {
+	return sc.fileName, sc.lineNo
 }
