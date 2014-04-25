@@ -75,7 +75,7 @@ func (d *DefaultLocator) Locate(context interface{}, name string, args []interfa
 		result := v.Call(a)
 
 		// we ignore any other values returned.
-		return result[0], nil
+		return result[0].Interface(), nil
 	}
 
 	// default behaviour is to return the value uninterpreted.
