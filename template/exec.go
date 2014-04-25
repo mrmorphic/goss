@@ -127,18 +127,18 @@ func (exec *executer) renderChunkVarFunc(ch *chunk) ([]byte, error) {
 }
 
 func (exec *executer) renderChunkIf(ch *chunk) ([]byte, error) {
-	condition := ch.m["condition"]
+	condition := ch.m["condition"].(*chunk)
 	truePart := ch.m["truePart"]
 	falsePart := ch.m["falsePart"]
 
-	cond, e := exec.eval(condition.(*chunk))
+	cond, e := exec.eval(condition)
 	if e != nil {
 		return nil, e
 	}
-
-	b, ok := cond.(bool)
-	if !ok {
-		return nil, fmt.Errorf("If condition must be boolean")
+	fmt.Printf("cond: %s\n", cond)
+	b, e := exec.boolOf(cond)
+	if e != nil {
+		return nil, newTemplateError(fmt.Sprintf("If condition must be boolean '%s'", condition.printable(0)), ch)
 	}
 
 	render := truePart
@@ -151,6 +151,28 @@ func (exec *executer) renderChunkIf(ch *chunk) ([]byte, error) {
 		return []byte{}, nil
 	}
 	return exec.renderChunk(render.(*chunk))
+}
+
+// Given a value, try and interpret the value as a boolean. If we can't interpret it, return an error.
+func (exec *executer) boolOf(value interface{}) (bool, error) {
+	// nil value is false. e.g. <% if $name %>, where name is not defined in the context
+	if value == nil {
+		return false, nil
+	}
+	fmt.Printf("boolOf %s\n", value)
+
+	switch value := value.(type) {
+	case bool, *bool:
+		return value.(bool), nil
+	case int, *int:
+		return value != 0, nil
+	case string, *string:
+		return value != "", nil
+	}
+
+	// if value is a function, test that it returns boolean
+
+	return false, fmt.Errorf("Cannot treat %s as bool", value)
 }
 
 // renderChunkLayout handles injection of $Layout in a main template.
