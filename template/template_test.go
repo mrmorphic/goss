@@ -206,7 +206,7 @@ func TestComment(t *testing.T) {
 
 func TestBaseTag(t *testing.T) {
 	sources := map[string]string{
-		`<% base_tag %>`: `<base href="http://localhost /><!--[if lte IE 6]></base><![endif]-->`,
+		`<% base_tag %>`: `<base href="http://localhost/"><!--[if lte IE 6]></base><![endif]-->`,
 	}
 	context := make(map[string]interface{})
 

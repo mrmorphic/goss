@@ -123,6 +123,9 @@ func (exec *executer) renderChunkVarFunc(ch *chunk) ([]byte, error) {
 	if e != nil {
 		return nil, e
 	}
+	if v == nil {
+		return []byte{}, nil
+	}
 	return []byte(fmt.Sprintf("%s", v)), nil
 }
 
@@ -189,12 +192,12 @@ func (exec *executer) renderChunkLayout(ch *chunk) ([]byte, error) {
 func (exec *executer) renderBaseTag(ch *chunk) ([]byte, error) {
 	url := configuration.siteUrl
 	if url == "" {
-		url = "localhost"
+		url = "localhost/"
 	}
 	if url[0:7] != "http://" && url[0:8] != "https://" {
 		url = configuration.defaultProtocol + "://" + url
 	}
-	tag := `<base href="` + url + ` /><!--[if lte IE 6]></base><![endif]-->`
+	tag := `<base href="` + url + `"><!--[if lte IE 6]></base><![endif]-->`
 	return []byte(tag), nil
 }
 
