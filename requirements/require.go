@@ -34,7 +34,7 @@ type inclusion struct {
 // Return the markup to inject for a CSS inclusion
 func (i *inclusion) asCSS() string {
 	if i.path != "" {
-		return `<link rel="stylesheet" type="text/css" href="` + i.path + `" />`
+		return "\n" + `<link rel="stylesheet" type="text/css" href="` + i.path + `" />`
 	}
 	return `<style>
 		` + i.custom + `
@@ -117,9 +117,12 @@ func (r *DefaultRequirements) InsertHeadTags(markup []byte) ([]byte, error) {
 		return markup, nil
 	}
 
-	var buf = bytes.NewBuffer(markup[0:i])
+	inject += "\n"
+	var buf = &bytes.Buffer{}
+	buf.Write(markup[0:i])
 	buf.Write([]byte(inject))
 	buf.Write(markup[i:])
+
 	return buf.Bytes(), nil
 }
 
