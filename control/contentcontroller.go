@@ -17,12 +17,12 @@ import (
 type ContentController struct {
 	BaseController
 
-	Object *orm.DataObject
+	Object orm.DataObject
 }
 
 func (c *ContentController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	templates := []string{"Page", c.Object.AsString("ClassName")}
-	e := template.RenderWith(w, templates, c, nil, nil)
+	templates := []string{"Page", c.Object.GetStr("ClassName")}
+	e := template.RenderWith(w, templates, c, nil)
 
 	if e != nil {
 		ErrorHandler(w, e)
@@ -30,7 +30,7 @@ func (c *ContentController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c *ContentController) Init(obj *orm.DataObject) {
+func (c *ContentController) Init(obj orm.DataObject) {
 	fmt.Printf("ContentController.Init called with %s\n", obj)
 	c.Object = obj
 	fmt.Printf("ContentController.Init left with %s\n", c)
@@ -136,9 +136,9 @@ func SiteTreeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Given a page, find a controller that says it can handle it, and render the page with that.
-func renderWithMatchedController(w http.ResponseWriter, r *http.Request, page *orm.DataObject) {
+func renderWithMatchedController(w http.ResponseWriter, r *http.Request, page orm.DataObject) {
 	// locate a controller
-	c, e := getControllerInstance(page.AsString("ClassName"))
+	c, e := getControllerInstance(page.GetStr("ClassName"))
 
 	if e != nil {
 		ErrorHandler(w, e)

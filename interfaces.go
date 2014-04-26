@@ -39,3 +39,12 @@ type RequirementsProvider interface {
 	// Insert javascript just befire </body>. If that tag can't be found, returns an error.
 	InsertBodyTags(markup []byte) ([]byte, error)
 }
+
+type Evaluater interface {
+	// Given a name and optional arguments, evaluate the name and return the value
+	Get(name string, args ...interface{}) interface{}
+	// Same as Get but converts to string
+	GetStr(name string, args ...interface{}) string
+	// Same as Get but converts to int
+	GetInt(name string, args ...interface{}) (int, error)
+}

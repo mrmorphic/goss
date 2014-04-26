@@ -4,7 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"reflect"
+	"github.com/mrmorphic/goss"
+	"github.com/mrmorphic/goss/convert"
 	"strconv"
 	"strings"
 	"time"
@@ -29,66 +30,46 @@ func Query(sql string) (q *sql.Rows, e error) {
 	return
 }
 
-type DataObject struct {
-	fields map[string]interface{}
-	// @todo add ClassInfo to DataObject
-	//	fields []interface{}
+type DataObject interface {
+	goss.Evaluater
+	// set a field
+	Set(field string, value interface{})
 }
 
-func (obj *DataObject) FieldByName(fieldName string) interface{} {
-	return obj.fields[fieldName]
+// This is a basic implementation of DataObject, to be used when the ORM returns an object
+// from the database where the ClassName is not registered.
+type DataObjectMap map[string]interface{}
+
+func (obj DataObjectMap) Get(fieldName string, args ...interface{}) interface{} {
+	return obj[fieldName]
 }
 
 // Return string representation of the field
-func (obj *DataObject) AsString(fieldName string) string {
-	iv := obj.FieldByName(fieldName)
-
-	t := reflect.TypeOf(iv)
-	switch t.String() {
-	case "*sql.NullString":
-		s := iv.(*sql.NullString)
-		return s.String
-	case "string":
-		return iv.(string)
-	default:
-		return "don't know this type: " + t.String()
-	}
-	return "don't know"
+func (obj DataObjectMap) GetStr(fieldName string, args ...interface{}) string {
+	return convert.AsString(obj.Get(fieldName))
 }
 
-func (obj *DataObject) AsInt(fieldName string) (int, error) {
-	iv := obj.FieldByName(fieldName)
-
-	t := reflect.TypeOf(iv)
-	switch t.String() {
-	case "*sql.NullInt64":
-		s := iv.(*sql.NullInt64)
-		return int(s.Int64), nil
-	case "*sql.NullString":
-		// observed but not expected
-		v := iv.(*sql.NullString)
-		return strconv.Atoi(v.String)
-	}
-	return 0, errors.New("AsInt doesn't understand type " + t.String())
+func (obj DataObjectMap) GetInt(fieldName string, args ...interface{}) (int, error) {
+	return convert.AsInt(obj.Get(fieldName))
 }
 
-func (obj *DataObject) Set(fieldName string, value interface{}) {
-	obj.fields[fieldName] = value
+func (obj DataObjectMap) Set(fieldName string, value interface{}) {
+	obj[fieldName] = value
 }
 
-func (obj *DataObject) Debug() string {
+func (obj DataObjectMap) Debug() string {
 	s := "DataObject:\n"
-	for f, v := range obj.fields {
+	for f, v := range obj {
 		s += fmt.Sprintf("  %s: %s\n", f, v)
 	}
 	return s
 }
 
-func NewDataObject() *DataObject {
-	return &DataObject{map[string]interface{}{}}
+func NewDataObjectMap() DataObjectMap {
+	return map[string]interface{}{}
 }
 
-func DataObjectFromRow(r *sql.Rows) (obj *DataObject, e error) {
+func DataObjectFromRow(r *sql.Rows) (obj DataObject, e error) {
 	// Get columns
 	cols, e := r.Columns()
 	colCount := len(cols)
@@ -123,25 +104,25 @@ func DataObjectFromRow(r *sql.Rows) (obj *DataObject, e error) {
 		return nil, e
 	}
 
-	m := make(map[string]interface{}, colCount)
+	m := NewDataObjectMap()
 
 	for i, c := range cols {
 		m[c] = field[i]
 	}
 
-	return &DataObject{m}, nil
+	return m, nil
 }
 
 type DataList struct {
-	Items []*DataObject
+	Items []DataObject
 }
 
 func NewDataList() *DataList {
 	// return &DataList{make([]*DataObject, 10)}
-	return &DataList{make([]*DataObject, 0, 10)}
+	return &DataList{make([]DataObject, 0, 10)}
 }
 
-func (set *DataList) First() *DataObject {
+func (set *DataList) First() DataObject {
 	if len(set.Items) < 1 {
 		return nil
 	}

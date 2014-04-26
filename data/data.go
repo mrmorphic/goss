@@ -1,10 +1,16 @@
-package template
+package data
 
 import (
 	"fmt"
-	"github.com/mrmorphic/goss/orm"
+	// "github.com/mrmorphic/goss/orm"
+	"github.com/mrmorphic/goss"
+	"github.com/mrmorphic/goss/convert"
 	"reflect"
 )
+
+func Eval(context interface{}, name string, args ...interface{}) interface{} {
+	return NewDefaultLocater(context).Get(name, args...)
+}
 
 // defaultLocator is an implementation of DataLocator, with specific behaviours that make it useful in
 // the context of SilverStripe. Specifically:
@@ -14,23 +20,24 @@ import (
 //    _fallback if it exists, and try to interpret that instead. This allows for the SS-type behaviour
 //    of passing a controller
 //  * if the context value implements DataLocator, it will delegate to that.
-type DefaultLocator struct {
+type DefaultLocater struct {
+	context interface{}
 }
 
-func NewDefaultLocator() DataLocator {
-	return &DefaultLocator{}
+func NewDefaultLocater(context interface{}) goss.Evaluater {
+	return &DefaultLocater{context}
 }
 
-func (d *DefaultLocator) Locate(context interface{}, name string, args []interface{}) (interface{}, error) {
-	fmt.Printf("Locate %s (%s) in %s\n", name, args, context)
-	ctx := reflect.ValueOf(context)
-	ctxElem := ctx
+func (d *DefaultLocater) Get(name string, args ...interface{}) interface{} {
+	fmt.Printf("Locate %s (%s) in %s\n", name, args, d.context)
+	ctx := reflect.ValueOf(d.context)
+	//	ctxElem := ctx
 	var value interface{}
 
-	if ctx.Kind() == reflect.Ptr {
-		// dereference before the switch
-		ctxElem = ctx.Elem()
-	}
+	// if ctx.Kind() == reflect.Ptr {
+	// 	// dereference before the switch
+	// 	ctxElem = ctx.Elem()
+	// }
 
 	typ := ctx.Type().Name()
 	fmt.Printf("type is %s\n", typ)
@@ -41,14 +48,14 @@ func (d *DefaultLocator) Locate(context interface{}, name string, args []interfa
 	case ctx.Kind() == reflect.Map:
 		fmt.Printf("...is a map\n")
 		// @todo this is too restrictive. What we really want is to ensure that context is a map with a string key, and any type.
-		m, ok := context.(map[string]interface{})
+		m, ok := d.context.(map[string]interface{})
 		if !ok {
 			panic("locater: map must be map[string]interface{}")
 		}
 		value = m[name]
-	case ctxElem.Kind() == reflect.Struct && typ == "DataObject":
-		fmt.Printf("Locate found DataObject\n")
-		value = ctx.Interface().(*orm.DataObject).FieldByName(name)
+	// case ctxElem.Kind() == reflect.Struct && typ == "DataObject":
+	// 	fmt.Printf("Locate found DataObject\n")
+	// 	value = ctx.Interface().(*orm.DataObject).FieldByName(name)
 	case ctx.Kind() == reflect.Struct:
 		// struct. look up field or method of that name
 		value = ""
@@ -72,16 +79,13 @@ func (d *DefaultLocator) Locate(context interface{}, name string, args []interfa
 	case value == nil:
 		// see if there is a _fallback
 		if name != "_fallback" {
-			fallback, e := d.Locate(context, "_fallback", nil)
-			if e != nil {
-				return nil, e
-			}
+			fallback := d.Get("_fallback")
 			if fallback != nil {
-				return d.Locate(fallback, name, args)
+				return Eval(fallback, name, args...)
 			}
 		}
 		// we couldn't work it out, just return nil with no error.
-		return nil, nil
+		return nil
 	case v.Kind() == reflect.Func:
 		// reflection funkiness; create a slice of args asserted as reflect.Value.
 		a := make([]reflect.Value, 0)
@@ -91,9 +95,18 @@ func (d *DefaultLocator) Locate(context interface{}, name string, args []interfa
 		result := v.Call(a)
 
 		// we ignore any other values returned.
-		return result[0].Interface(), nil
+		return result[0].Interface()
 	}
 
 	// default behaviour is to return the value uninterpreted.
-	return value, nil
+	return value
+}
+
+// Return string representation of the field
+func (d *DefaultLocater) GetStr(fieldName string, args ...interface{}) string {
+	return convert.AsString(d.Get(fieldName))
+}
+
+func (d *DefaultLocater) GetInt(fieldName string, args ...interface{}) (int, error) {
+	return convert.AsInt(d.Get(fieldName))
 }

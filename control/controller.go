@@ -3,20 +3,20 @@ package control
 import (
 	"errors"
 	"fmt"
+	"github.com/mrmorphic/goss/orm"
 	"net/http"
 	"strconv"
-	"github.com/mrmorphic/goss/orm"
 )
 
 // Base type for BaseController. Goss doesn't directly create this; it is a base for the application
 // to extend.
 type BaseController struct {
-	Object  *orm.DataObject
+	Object  orm.DataObject
 	Request *http.Request
 	Output  http.ResponseWriter
 }
 
-func (c *BaseController) Init(w http.ResponseWriter, r *http.Request, object *orm.DataObject) {
+func (c *BaseController) Init(w http.ResponseWriter, r *http.Request, object orm.DataObject) {
 	c.Object = object
 	c.Request = r
 	c.Output = w
@@ -29,7 +29,7 @@ func (ctl *BaseController) Menu(level int) (set *orm.DataList, e error) {
 }
 
 // Return the SiteConfig DataObject.
-func (ctl *BaseController) SiteConfig() (obj *orm.DataObject, e error) {
+func (ctl *BaseController) SiteConfig() (obj orm.DataObject, e error) {
 	q := orm.NewQuery("SiteConfig").Limit(0, 1)
 	res, e := q.Exec()
 	if e != nil {
@@ -53,12 +53,12 @@ func (ctl *BaseController) CurrentMember() (obj *orm.DataObject, e error) {
 // descendents and the object. For other (non-hierarchical objects) this is an empty string, because
 // there is no structure. Note this is not a complete Link, because the link is a function
 // of the presentation layer, not the model. But this is helpful especially for SiteTree objects.
-func (ctl *BaseController) Path(obj *orm.DataObject, field string) (string, error) {
+func (ctl *BaseController) Path(obj orm.DataObject, field string) (string, error) {
 	fmt.Printf("BaseController::Path field %s in %s\n", field, obj)
 	if obj == nil {
 		return "", errors.New("Cannot determine path to empty object")
 	}
-	hier := orm.IsHierarchical(obj.AsString("ClassName"))
+	hier := orm.IsHierarchical(obj.GetStr("ClassName"))
 	if !hier {
 		fmt.Printf("BaseController::Path: not hierarchical\n")
 
@@ -68,8 +68,8 @@ func (ctl *BaseController) Path(obj *orm.DataObject, field string) (string, erro
 	//	i,_ := obj.AsInt("ParentID")
 	//	fmt.Printf("ParentID for object is %d\n", i)
 	//fmt.Printf("Object is %s\n", obj)
-	res := obj.AsString(field)
-	for parentID, e := obj.AsInt("ParentID"); e != nil && parentID > 0; {
+	res := obj.GetStr(field)
+	for parentID, e := obj.GetInt("ParentID"); e != nil && parentID > 0; {
 		// @todo don't hardcode "SiteTree", derive the base class using metadata.
 		q := orm.NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ID\"=" + strconv.Itoa(parentID))
 		ds, e := q.Exec()
@@ -77,7 +77,7 @@ func (ctl *BaseController) Path(obj *orm.DataObject, field string) (string, erro
 			return "", e
 		}
 		obj = ds.First()
-		res = obj.AsString(field) + "/" + res
+		res = obj.GetStr(field) + "/" + res
 	}
 	fmt.Printf("BaseController::Path: returning %s\n", res)
 

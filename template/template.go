@@ -7,12 +7,6 @@ import (
 	"net/http"
 )
 
-// DataLocator is any type that can be used to look up a symbol and return a value. If the item appears
-// to be a function, args a populated, but it may be a function with no arguments.
-type DataLocator interface {
-	Locate(context interface{}, name string, args []interface{}) (interface{}, error)
-}
-
 // syntax to consider:
 // $var
 // {$var}
@@ -77,10 +71,7 @@ var compiledTemplates map[string]*compiledTemplate
 // writer. 'templates' is an array of SilverStripe templates minus the ".ss" extension. If there is one template,
 // it is assumed to be in the base templates folder. If two are present, the first is the base template, the
 // second is the $Layout template.
-func RenderWith(w http.ResponseWriter, templates []string, context interface{}, locator DataLocator, require goss.RequirementsProvider) error {
-	if locator == nil {
-		locator = NewDefaultLocator()
-	}
+func RenderWith(w http.ResponseWriter, templates []string, context interface{}, require goss.RequirementsProvider) error {
 	if require == nil {
 		require = requirements.NewRequirements()
 	}
@@ -103,7 +94,7 @@ func RenderWith(w http.ResponseWriter, templates []string, context interface{}, 
 	}
 
 	// execute the template using the data locator
-	r, e := executeTemplate(compiled, context, locator, require)
+	r, e := executeTemplate(compiled, context, require)
 	if e != nil {
 		return e
 	}
@@ -113,8 +104,8 @@ func RenderWith(w http.ResponseWriter, templates []string, context interface{}, 
 	return e
 }
 
-func executeTemplate(templates []*compiledTemplate, context interface{}, locator DataLocator, require goss.RequirementsProvider) ([]byte, error) {
-	exec := newExecuter(templates, context, locator, require)
+func executeTemplate(templates []*compiledTemplate, context interface{}, require goss.RequirementsProvider) ([]byte, error) {
+	exec := newExecuter(templates, context, require)
 	return exec.render()
 }
 

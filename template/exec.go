@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mrmorphic/goss"
+	"github.com/mrmorphic/goss/data"
 	"reflect"
 )
 
@@ -18,15 +19,12 @@ type executer struct {
 	// is the layout template, used to substitute $Layout.
 	templates []*compiledTemplate
 
-	// The locator for symbol lookups
-	locator DataLocator
-
 	// interface for handling requirements processing
 	require goss.RequirementsProvider
 }
 
-func newExecuter(templates []*compiledTemplate, context interface{}, locator DataLocator, require goss.RequirementsProvider) *executer {
-	exec := &executer{contextStack: make([]interface{}, 0), templates: templates, locator: locator, require: require}
+func newExecuter(templates []*compiledTemplate, context interface{}, require goss.RequirementsProvider) *executer {
+	exec := &executer{contextStack: make([]interface{}, 0), templates: templates, require: require}
 	exec.push(context)
 	return exec
 }
@@ -364,10 +362,11 @@ func (exec *executer) evalVarFunc(expr *chunk) (interface{}, error) {
 		return nil, e
 	}
 
-	value, e := exec.locator.Locate(exec.context(), name, paramList)
-	if e != nil {
-		return nil, e
-	}
+	// @todo if exec.context() implements evaluater, use it.
+	// value := data.Eval(exec.context(), name, paramList...)
+	value := exec.evaluate(exec.context(), name, paramList...)
+
+	// value := exec.locator.Get(exec.context(), name, paramList)
 	fmt.Printf("... locator said: %s\n", value)
 	if chained == nil {
 		return value, e
@@ -380,6 +379,17 @@ func (exec *executer) evalVarFunc(expr *chunk) (interface{}, error) {
 		}
 		return v, nil
 	}
+}
+
+// helper function to get a variable or function reference from a context object. If context
+// implements goss.Evaluater, then call Get directly on it. Otherwise use the default locator
+// via data.Eval
+func (exec *executer) evaluate(context interface{}, name string, args ...interface{}) interface{} {
+	e, ok := context.(goss.Evaluater)
+	if ok {
+		return e.Get(name, args...)
+	}
+	return data.Eval(context, name, args...)
 }
 
 func (exec *executer) evalNot(expr *chunk) (interface{}, error) {

@@ -1,16 +1,16 @@
 package control
 
 import (
-	"net/http"
-	"github.com/mrmorphic/goss/orm"
 	"errors"
-//	"reflect"
+	"github.com/mrmorphic/goss/orm"
+	"net/http"
+	//	"reflect"
 )
 
 // Controller is a handler that has an initialisation method for passing through a DataObject.
 type Controller interface {
 	http.Handler
-	Init(*orm.DataObject)
+	Init(orm.DataObject)
 }
 
 var controllers map[string]Controller
@@ -33,9 +33,9 @@ func getControllerInstance(className string) (Controller, error) {
 	}
 
 	return c, nil
-//	// Get the type that the interface points to
-//	t := reflect.TypeOf(c)
-//
-//	new := reflect.New(t)
-//	return new, nil
+	//	// Get the type that the interface points to
+	//	t := reflect.TypeOf(c)
+	//
+	//	new := reflect.New(t)
+	//	return new, nil
 }
