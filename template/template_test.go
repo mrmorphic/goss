@@ -34,7 +34,7 @@ func compileAndExecute(source string, context interface{}) ([]byte, error) {
 	if e != nil {
 		return nil, e
 	}
-	exec := newExecuter([]*compiledTemplate{compiled}, context, NewDefaultLocator(), requirements.NewRequirements())
+	exec := newExecuter([]*compiledTemplate{compiled}, context, requirements.NewRequirements())
 	return exec.render()
 }
 
@@ -156,7 +156,7 @@ func TestExec(t *testing.T) {
 	context["title"] = "dear"
 
 	// evaluate it
-	exec := newExecuter([]*compiledTemplate{compiled}, context, NewDefaultLocator(), requirements.NewRequirements())
+	exec := newExecuter([]*compiledTemplate{compiled}, context, requirements.NewRequirements())
 	bytes, e := exec.renderChunk(compiled.chunk)
 
 	if e != nil {
