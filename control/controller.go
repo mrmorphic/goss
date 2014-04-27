@@ -3,6 +3,8 @@ package control
 import (
 	"errors"
 	"fmt"
+	"github.com/mrmorphic/goss/convert"
+	"github.com/mrmorphic/goss/data"
 	"github.com/mrmorphic/goss/orm"
 	"net/http"
 	"strconv"
@@ -22,25 +24,32 @@ func (c *BaseController) Init(w http.ResponseWriter, r *http.Request, object orm
 	c.Output = w
 }
 
-func (ctl *BaseController) Menu(level int) (set *orm.DataList, e error) {
-	q := orm.NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ParentID\"=0").Where("\"ShowInMenus\"=1").OrderBy("\"Sort\" ASC")
-	set, e = q.Exec()
-	return
+func (ctl *BaseController) Menu(level int) (orm.DataList, error) {
+	q := orm.NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ParentID\"=0").Where("\"ShowInMenus\"=1").Sort("\"Sort\" ASC")
+	v, e := q.Run()
+	if e != nil {
+		return nil, e
+	}
+
+	return v.(orm.DataList), nil
+	// set, e = q.Run().(orm.DataList)
+	// return
 }
 
 // Return the SiteConfig DataObject.
 func (ctl *BaseController) SiteConfig() (obj orm.DataObject, e error) {
 	q := orm.NewQuery("SiteConfig").Limit(0, 1)
-	res, e := q.Exec()
+	res, e := q.Run()
 	if e != nil {
 		return nil, e
 	}
 
-	if len(res.Items) < 1 {
+	items, _ := res.(orm.DataList).Items()
+	if len(items) < 1 {
 		return nil, errors.New("There is no SiteConfig record")
 	}
 
-	return res.Items[0], nil
+	return items[0], nil
 }
 
 // If the user is currently logged in, return a Member data object that represents the user. If logged out, return nil.
@@ -72,14 +81,28 @@ func (ctl *BaseController) Path(obj orm.DataObject, field string) (string, error
 	for parentID, e := obj.GetInt("ParentID"); e != nil && parentID > 0; {
 		// @todo don't hardcode "SiteTree", derive the base class using metadata.
 		q := orm.NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ID\"=" + strconv.Itoa(parentID))
-		ds, e := q.Exec()
+		ds, e := q.Run()
 		if e != nil {
 			return "", e
 		}
-		obj = ds.First()
+		items, _ := ds.(orm.DataList).Items()
+		obj = items[0]
 		res = obj.GetStr(field) + "/" + res
 	}
 	fmt.Printf("BaseController::Path: returning %s\n", res)
 
 	return res, nil
+}
+
+func (ctl *BaseController) Get(fieldName string, args ...interface{}) interface{} {
+	return data.Eval(ctl, fieldName, args...)
+}
+
+// Return string representation of the field
+func (ctl *BaseController) GetStr(fieldName string, args ...interface{}) string {
+	return convert.AsString(ctl.Get(fieldName))
+}
+
+func (ctl *BaseController) GetInt(fieldName string, args ...interface{}) (int, error) {
+	return convert.AsInt(ctl.Get(fieldName))
 }
