@@ -18,6 +18,8 @@ type ContentController struct {
 	BaseController
 
 	Object orm.DataObject
+
+	name string
 }
 
 func (c *ContentController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -33,6 +35,7 @@ func (c *ContentController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (c *ContentController) Init(obj orm.DataObject) {
 	fmt.Printf("ContentController.Init called with %s\n", obj)
 	c.Object = obj
+	c.name = "test"
 	fmt.Printf("ContentController.Init left with %s\n", c)
 }
 
@@ -117,20 +120,26 @@ func SiteTreeHandler(w http.ResponseWriter, r *http.Request) {
 	//	fmt.Printf("SiteTreeHandler has found a page: %d\n", pageID)
 
 	q := orm.NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ID\"=" + strconv.Itoa(pageID))
-	res, _ := q.Exec()
+	v, _ := q.Run()
 
 	if e != nil {
 		ErrorHandler(w, e)
 		return
 	}
 
-	if len(res.Items) == 0 {
+	res := v.(orm.DataList)
+	items, e := res.Items()
+	if e != nil {
+		ErrorHandler(w, e)
+	}
+
+	if len(items) == 0 {
 		e = errors.New("Could not locate object with ID " + strconv.Itoa(pageID))
 		ErrorHandler(w, e)
 		return
 	}
 
-	page := res.Items[0]
+	page := items[0]
 
 	renderWithMatchedController(w, r, page)
 }
