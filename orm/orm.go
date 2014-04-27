@@ -2,12 +2,8 @@ package orm
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"github.com/mrmorphic/goss"
-	"github.com/mrmorphic/goss/convert"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -30,43 +26,14 @@ func Query(sql string) (q *sql.Rows, e error) {
 	return
 }
 
+// DataObject is an interface for items returned by the ORM.
 type DataObject interface {
 	goss.Evaluater
 	// set a field
 	Set(field string, value interface{})
 }
 
-// This is a basic implementation of DataObject, to be used when the ORM returns an object
-// from the database where the ClassName is not registered.
-type DataObjectMap map[string]interface{}
-
-func (obj DataObjectMap) Get(fieldName string, args ...interface{}) interface{} {
-	return obj[fieldName]
-}
-
-// Return string representation of the field
-func (obj DataObjectMap) GetStr(fieldName string, args ...interface{}) string {
-	return convert.AsString(obj.Get(fieldName))
-}
-
-func (obj DataObjectMap) GetInt(fieldName string, args ...interface{}) (int, error) {
-	return convert.AsInt(obj.Get(fieldName))
-}
-
-func (obj DataObjectMap) Set(fieldName string, value interface{}) {
-	obj[fieldName] = value
-}
-
-func (obj DataObjectMap) Debug() string {
-	s := "DataObject:\n"
-	for f, v := range obj {
-		s += fmt.Sprintf("  %s: %s\n", f, v)
-	}
-	return s
-}
-
-func NewDataObjectMap() DataObjectMap {
-	return map[string]interface{}{}
+type DataQuery interface {
 }
 
 func DataObjectFromRow(r *sql.Rows) (obj DataObject, e error) {
