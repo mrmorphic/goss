@@ -2,7 +2,6 @@ package data
 
 import (
 	"fmt"
-	// "github.com/mrmorphic/goss/orm"
 	"github.com/mrmorphic/goss"
 	"github.com/mrmorphic/goss/convert"
 	"reflect"
@@ -31,16 +30,19 @@ func NewDefaultLocater(context interface{}) goss.Evaluater {
 func (d *DefaultLocater) Get(name string, args ...interface{}) interface{} {
 	fmt.Printf("Locate %s (%s) in %s\n", name, args, d.context)
 	ctx := reflect.ValueOf(d.context)
-	//	ctxElem := ctx
+	ctxElem := ctx
 	var value interface{}
 
-	// if ctx.Kind() == reflect.Ptr {
-	// 	// dereference before the switch
-	// 	ctxElem = ctx.Elem()
-	// }
+	if ctx.Kind() == reflect.Ptr {
+		// dereference before the switch
+		ctxElem = ctx.Elem()
+	}
 
 	typ := ctx.Type().Name()
 	fmt.Printf("type is %s\n", typ)
+	typ2 := ctxElem.Type().Name()
+	fmt.Printf("elem is %s\n", typ2)
+
 	// interpret the context based on what kind of object we're passed. The intent is to look up the name in the context,
 	// and populate 'value'.
 	switch {
@@ -56,10 +58,10 @@ func (d *DefaultLocater) Get(name string, args ...interface{}) interface{} {
 	// case ctxElem.Kind() == reflect.Struct && typ == "DataObject":
 	// 	fmt.Printf("Locate found DataObject\n")
 	// 	value = ctx.Interface().(*orm.DataObject).FieldByName(name)
-	case ctx.Kind() == reflect.Struct:
+	case ctxElem.Kind() == reflect.Struct:
 		// struct. look up field or method of that name
-		value = ""
 		fmt.Printf("...is a struct\n")
+		value = ctxElem.FieldByName(name)
 	case ctx.Kind() == reflect.Func:
 		// if the context itself is a function, call the function and use it's value recursively. This would let
 		// the caller provide a closure that would produce the values.
