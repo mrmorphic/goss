@@ -40,6 +40,12 @@ type RequirementsProvider interface {
 	InsertBodyTags(markup []byte) ([]byte, error)
 }
 
+// Evaluater represents something that can resolve a variable name to a value in it's context,
+// or evaluate a named function with parameters in it's context. Evaluaters typically implement
+// fallback behaviour, where if a name is not known in this context, it looks for a _fallback
+// property or function, and if present, evaluates it and uses that for the original evaluation.
+// The primary method is Get, but GetStr and GetInt are required as in many cases consumers will
+// want a string or int.
 type Evaluater interface {
 	// Given a name and optional arguments, evaluate the name and return the value
 	Get(name string, args ...interface{}) interface{}

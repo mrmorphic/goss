@@ -285,7 +285,30 @@ ConfigProvider assumes that the configuration data is organised in a name space.
  	for the ORM. This is typically automatically generated using the
  	github.com/mrmorphic/silverstripe-goss module.
 
+## Objects and Interfaces
+
+Go's object model is very different from PHP's object model. For example, subclasses are used extensively, and in SilverStripe, so are extensions. Go uses interfaces extensively and composition of independent components.
+
+goss keeps as much as possible to how idiomatic Go works, while providing the conceptual framework of SilverStripe. To this end, goss works mostly with interface{}, which can be a value of any type. Concrete types are provided by the library as well.
+
+Key interfaces of goss include:
+
+ *	Evaluater - implementers are able to return a value for a
+	variable reference or function call reference. Key implementers are
+	DataObject, DataList, DefaultLocator (utility) and Controller. This is
+	used extensively by the templating engine to resolve symbols, but is
+	typically used by project code as "getters" for properties.
+ *	ConfigurationProvider - implementers can provide config values
+ *	RequirementsProvider - interface to a requirements back end, with a
+ 	default implementation of goss.requirements.DefaultRequirements
+
 ## ORM
+
+### DataObject representation
+
+### DataList
+
+### Configuration
 
 ## Controllers
 
