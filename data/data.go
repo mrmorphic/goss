@@ -57,8 +57,9 @@ func (d *DefaultLocater) Get(name string, args ...interface{}) interface{} {
 	switch {
 	case IsZeroOfUnderlyingType(value):
 		// see if there is a _fallback
-		if name != "_fallback" {
-			fallback := d.Get("_fallback")
+		if name != "Fallback" {
+			fallback := d.Get("Fallback")
+			fmt.Printf("fallback is %s\n", fallback)
 			if fallback != nil {
 				return Eval(fallback, name, args...)
 			}
