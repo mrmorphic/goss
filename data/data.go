@@ -42,12 +42,7 @@ func (d *DefaultLocater) Get(name string, args ...interface{}) interface{} {
 	// context is..
 	switch {
 	case ctx.Kind() == reflect.Map:
-		fmt.Printf("...is a map\n")
-		m, ok := d.context.(map[string]interface{})
-		if !ok {
-			panic("locater: map must be map[string]interface{}")
-		}
-		value = reflect.ValueOf(m[name])
+		value = ctx.MapIndex(reflect.ValueOf(name))
 	case ctx.Kind() == reflect.Struct:
 		// test first for a function of that name
 		value = ctx.MethodByName(name)
