@@ -32,11 +32,12 @@ func (c *ContentController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c *ContentController) Init(obj orm.DataObject) {
-	fmt.Printf("ContentController.Init called with %s\n", obj)
-	c.Object = obj
-	c.name = "test"
-	fmt.Printf("ContentController.Init left with %s\n", c)
+func (c *ContentController) SetObject(obj orm.DataObject) {
+	c.Fallback = obj
+}
+
+func (c *ContentController) GetObject() orm.DataObject {
+	return c.Fallback
 }
 
 // Given a request, follow the segments through sitetree to find the page that is being requested. Doesn't
@@ -154,7 +155,14 @@ func renderWithMatchedController(w http.ResponseWriter, r *http.Request, page or
 		return
 	}
 
-	c.Init(page)
+	// if the controller is a ContentController then set the object.
+	if cc, ok := c.(*ContentController); ok {
+		fmt.Printf("renderWithMatchedController: setting controller object to %s\n", page)
+		cc.SetObject(page)
+	} else {
+		fmt.Printf("renderWithMatchedController: not a *ContentController: %s", c)
+	}
+
 	fmt.Printf("after init c is %s\n", c)
 	c.ServeHTTP(w, r)
 }

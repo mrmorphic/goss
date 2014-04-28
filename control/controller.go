@@ -20,8 +20,7 @@ type BaseController struct {
 	TestBase string
 }
 
-func (c *BaseController) Init(w http.ResponseWriter, r *http.Request, object orm.DataObject) {
-	c.Object = object
+func (c *BaseController) Init(w http.ResponseWriter, r *http.Request) {
 	c.Request = r
 	c.Output = w
 }

@@ -10,7 +10,6 @@ import (
 // Controller is a handler that has an initialisation method for passing through a DataObject.
 type Controller interface {
 	http.Handler
-	Init(orm.DataObject)
 }
 
 var controllers map[string]Controller
