@@ -29,56 +29,38 @@ func NewDefaultLocater(context interface{}) goss.Evaluater {
 
 func (d *DefaultLocater) Get(name string, args ...interface{}) interface{} {
 	fmt.Printf("Locate %s (%s) in %s\n", name, args, d.context)
-	ctx := reflect.ValueOf(d.context)
-	ctxElem := ctx
-	var value interface{}
 
+	// Get the Value of context, and dereference if the type is a pointer
+	ctx := reflect.ValueOf(d.context)
 	if ctx.Kind() == reflect.Ptr {
-		// dereference before the switch
-		ctxElem = ctx.Elem()
+		ctx = ctx.Elem()
 	}
 
-	typ := ctx.Type().Name()
-	fmt.Printf("type is %s\n", typ)
-	typ2 := ctxElem.Type().Name()
-	fmt.Printf("elem is %s\n", typ2)
+	var value reflect.Value
 
-	// interpret the context based on what kind of object we're passed. The intent is to look up the name in the context,
-	// and populate 'value'.
+	// Get the Value associated with the name, which depends on what kind of item the
+	// context is..
 	switch {
-	// context implements DataLocator
 	case ctx.Kind() == reflect.Map:
 		fmt.Printf("...is a map\n")
-		// @todo this is too restrictive. What we really want is to ensure that context is a map with a string key, and any type.
 		m, ok := d.context.(map[string]interface{})
 		if !ok {
 			panic("locater: map must be map[string]interface{}")
 		}
-		value = m[name]
-	// case ctxElem.Kind() == reflect.Struct && typ == "DataObject":
-	// 	fmt.Printf("Locate found DataObject\n")
-	// 	value = ctx.Interface().(*orm.DataObject).FieldByName(name)
-	case ctxElem.Kind() == reflect.Struct:
-		// struct. look up field or method of that name
-		fmt.Printf("...is a struct\n")
-		value = ctxElem.FieldByName(name)
-	case ctx.Kind() == reflect.Func:
-		// if the context itself is a function, call the function and use it's value recursively. This would let
-		// the caller provide a closure that would produce the values.
-		// other value
+		value = reflect.ValueOf(m[name])
+	case ctx.Kind() == reflect.Struct:
+		// test first for a function of that name
+		value = ctx.MethodByName(name)
+		if IsZeroOfUnderlyingType(value) {
+			// if no function, test for struct field of that name. @todo lowercase hidden?
+			value = ctx.FieldByName(name)
+		}
 	}
 
-	fmt.Printf("kind is %s\n", ctx.Kind())
-	// Now we have the value at that place, see what we can do with it:
-	// - if it's a function, execute it with the parameters.
-	// - if it's a value, return it.
-	// - if it's undefined, see if there is a _fallback property and recurse on that if there is.
-
-	// Get the underlying value.
-	v := reflect.ValueOf(value)
-
+	// Now we have the value, work out what to do with it. There are two special cases; value couldn't
+	// be determined so try _fallback; the value's kind is a function, so call it with args
 	switch {
-	case value == nil:
+	case IsZeroOfUnderlyingType(value):
 		// see if there is a _fallback
 		if name != "_fallback" {
 			fallback := d.Get("_fallback")
@@ -88,20 +70,19 @@ func (d *DefaultLocater) Get(name string, args ...interface{}) interface{} {
 		}
 		// we couldn't work it out, just return nil with no error.
 		return nil
-	case v.Kind() == reflect.Func:
+	case value.Kind() == reflect.Func:
 		// reflection funkiness; create a slice of args asserted as reflect.Value.
 		a := make([]reflect.Value, 0)
 		for _, x := range args {
 			a = append(a, reflect.ValueOf(x))
 		}
-		result := v.Call(a)
+		result := value.Call(a)
 
 		// we ignore any other values returned.
 		return result[0].Interface()
 	}
 
-	// default behaviour is to return the value uninterpreted.
-	return value
+	return value.Interface()
 }
 
 // Return string representation of the field
@@ -111,4 +92,8 @@ func (d *DefaultLocater) GetStr(fieldName string, args ...interface{}) string {
 
 func (d *DefaultLocater) GetInt(fieldName string, args ...interface{}) (int, error) {
 	return convert.AsInt(d.Get(fieldName))
+}
+
+func IsZeroOfUnderlyingType(x interface{}) bool {
+	return x != nil && x == reflect.Zero(reflect.TypeOf(x)).Interface()
 }
