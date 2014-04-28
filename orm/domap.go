@@ -6,7 +6,7 @@ import (
 )
 
 // This is a basic implementation of DataObject, to be used when the ORM returns an object
-// from the database where the ClassName is not registered.
+// from the database where the ClassName is not registered. The object is represented as a map.
 type DataObjectMap map[string]interface{}
 
 func (obj DataObjectMap) Get(fieldName string, args ...interface{}) interface{} {

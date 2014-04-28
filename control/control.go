@@ -2,9 +2,8 @@ package control
 
 import (
 	"errors"
-	"github.com/mrmorphic/goss/orm"
 	"net/http"
-	//	"reflect"
+	"reflect"
 )
 
 // Controller is a handler that has an initialisation method for passing through a DataObject.
@@ -15,7 +14,7 @@ type Controller interface {
 var controllers map[string]Controller
 
 func init() {
-	controllers = make(map[string]Controller)
+	controllers = map[string]Controller{}
 }
 
 // AddController registers a controller for a data object type

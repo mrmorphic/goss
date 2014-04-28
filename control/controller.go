@@ -3,8 +3,6 @@ package control
 import (
 	"errors"
 	"fmt"
-	// "github.com/mrmorphic/goss/convert"
-	// "github.com/mrmorphic/goss/data"
 	"github.com/mrmorphic/goss/orm"
 	"net/http"
 	"strconv"
@@ -17,6 +15,7 @@ type BaseController struct {
 	Request *http.Request
 	Output  http.ResponseWriter
 
+	// property for unit tests only. Value injected by test, otherwise left unassigned. @todo fix this hack
 	TestBase string
 }
 
@@ -33,8 +32,6 @@ func (ctl *BaseController) Menu(level int) (orm.DataList, error) {
 	}
 
 	return v.(orm.DataList), nil
-	// set, e = q.Run().(orm.DataList)
-	// return
 }
 
 // Return the SiteConfig DataObject.
@@ -75,9 +72,6 @@ func (ctl *BaseController) Path(obj orm.DataObject, field string) (string, error
 		return "", nil
 	}
 
-	//	i,_ := obj.AsInt("ParentID")
-	//	fmt.Printf("ParentID for object is %d\n", i)
-	//fmt.Printf("Object is %s\n", obj)
 	res := obj.GetStr(field)
 	for parentID, e := obj.GetInt("ParentID"); e != nil && parentID > 0; {
 		// @todo don't hardcode "SiteTree", derive the base class using metadata.
@@ -94,16 +88,3 @@ func (ctl *BaseController) Path(obj orm.DataObject, field string) (string, error
 
 	return res, nil
 }
-
-// func (ctl *BaseController) Get(fieldName string, args ...interface{}) interface{} {
-// 	return data.Eval(ctl, fieldName, args...)
-// }
-
-// // Return string representation of the field
-// func (ctl *BaseController) GetStr(fieldName string, args ...interface{}) string {
-// 	return convert.AsString(ctl.Get(fieldName))
-// }
-
-// func (ctl *BaseController) GetInt(fieldName string, args ...interface{}) (int, error) {
-// 	return convert.AsInt(ctl.Get(fieldName))
-// }
