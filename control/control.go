@@ -30,10 +30,13 @@ func getControllerInstance(className string) (Controller, error) {
 		return nil, errors.New("Could not locate a controller for DataObject of class '" + className + "'")
 	}
 
-	return c, nil
-	//	// Get the type that the interface points to
-	//	t := reflect.TypeOf(c)
-	//
-	//	new := reflect.New(t)
-	//	return new, nil
+	// return c, nil
+	// Get the type that the interface points to
+	t := reflect.TypeOf(c)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	new := reflect.New(t)
+	return new.Interface().(Controller), nil
 }
