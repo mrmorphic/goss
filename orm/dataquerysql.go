@@ -162,7 +162,7 @@ func DataObjectFromRow(r *sql.Rows) (obj DataObject, e error) {
 	//fmt.Printf("cols are %s\n", cols)
 	//fmt.Printf("there are %d columns\n", colCount)
 	//fmt.Println("about to scan values")
-	// get associated values
+	// get associated value
 	e = r.Scan(field...)
 
 	//fmt.Println("scanned fields")
@@ -174,8 +174,27 @@ func DataObjectFromRow(r *sql.Rows) (obj DataObject, e error) {
 	m := NewDataObjectMap()
 
 	for i, c := range cols {
-		m[c] = field[i]
+		m[c] = flatten(field[i])
 	}
 
 	return m, nil
+}
+
+// This is a bit hassly. When we copy over field values, we need to ignore the Valid property
+// of each field, since SilverStripe effectively uses the zero values when underlying
+// SQL field is null. Without this conversion, all consumers of data object need to be aware
+// of sql package field values.
+func flatten(sqlField interface{}) interface{} {
+	switch v := sqlField.(type) {
+	case *sql.NullBool:
+		return v.Bool
+	case *sql.NullFloat64:
+		return v.Float64
+	case *sql.NullInt64:
+		return v.Int64
+	case *sql.NullString:
+		return v.String
+	}
+
+	return sqlField
 }
