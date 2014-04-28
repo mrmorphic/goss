@@ -17,9 +17,7 @@ import (
 type ContentController struct {
 	BaseController
 
-	Object orm.DataObject
-
-	name string
+	Fallback orm.DataObject
 }
 
 func (c *ContentController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
