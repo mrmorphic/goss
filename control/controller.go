@@ -3,8 +3,8 @@ package control
 import (
 	"errors"
 	"fmt"
-	"github.com/mrmorphic/goss/convert"
-	"github.com/mrmorphic/goss/data"
+	// "github.com/mrmorphic/goss/convert"
+	// "github.com/mrmorphic/goss/data"
 	"github.com/mrmorphic/goss/orm"
 	"net/http"
 	"strconv"
@@ -16,6 +16,8 @@ type BaseController struct {
 	Object  orm.DataObject
 	Request *http.Request
 	Output  http.ResponseWriter
+
+	TestBase string
 }
 
 func (c *BaseController) Init(w http.ResponseWriter, r *http.Request, object orm.DataObject) {
@@ -94,15 +96,15 @@ func (ctl *BaseController) Path(obj orm.DataObject, field string) (string, error
 	return res, nil
 }
 
-func (ctl *BaseController) Get(fieldName string, args ...interface{}) interface{} {
-	return data.Eval(ctl, fieldName, args...)
-}
+// func (ctl *BaseController) Get(fieldName string, args ...interface{}) interface{} {
+// 	return data.Eval(ctl, fieldName, args...)
+// }
 
-// Return string representation of the field
-func (ctl *BaseController) GetStr(fieldName string, args ...interface{}) string {
-	return convert.AsString(ctl.Get(fieldName))
-}
+// // Return string representation of the field
+// func (ctl *BaseController) GetStr(fieldName string, args ...interface{}) string {
+// 	return convert.AsString(ctl.Get(fieldName))
+// }
 
-func (ctl *BaseController) GetInt(fieldName string, args ...interface{}) (int, error) {
-	return convert.AsInt(ctl.Get(fieldName))
-}
+// func (ctl *BaseController) GetInt(fieldName string, args ...interface{}) (int, error) {
+// 	return convert.AsInt(ctl.Get(fieldName))
+// }
