@@ -32,6 +32,7 @@ func (d *DefaultLocater) Get(name string, args ...interface{}) interface{} {
 
 	// Get the Value of context, and dereference if the type is a pointer
 	ctx := reflect.ValueOf(d.context)
+	ctxOrig := ctx
 	if ctx.Kind() == reflect.Ptr {
 		ctx = ctx.Elem()
 	}
@@ -39,13 +40,15 @@ func (d *DefaultLocater) Get(name string, args ...interface{}) interface{} {
 	var value reflect.Value
 
 	// Get the Value associated with the name, which depends on what kind of item the
-	// context is..
+	// context is.
 	switch {
 	case ctx.Kind() == reflect.Map:
 		value = ctx.MapIndex(reflect.ValueOf(name))
 	case ctx.Kind() == reflect.Struct:
-		// test first for a function of that name
-		value = ctx.MethodByName(name)
+		// test first for a function of that name. The catch is that if the original item was a pointer to
+		// a struct, the method exists on *struct, not the struct itself, so we need to look at the original
+		// Value, not the Elem.
+		value = ctxOrig.MethodByName(name)
 		if IsZeroOfUnderlyingType(value) {
 			// if no function, test for struct field of that name. @todo lowercase hidden?
 			value = ctx.FieldByName(name)
