@@ -252,6 +252,12 @@ func (exec *executer) renderChunkLoop(ch *chunk) ([]byte, error) {
 		return []byte{}, nil
 	}
 
+	// if ctx implements DataList, get the items.
+	if dl, ok := ctxIntf.(orm.DataList); ok {
+		ctxIntf, e = dl.Items()
+		fmt.Printf("loop body seeing %d items: %s\n", len(ctxIntf.([]orm.DataObject)), ctxIntf)
+	}
+
 	result := []byte{}
 
 	// we expect ctx to be a slice
