@@ -52,192 +52,81 @@ Most features of SilverStripe are not implemented in goss. A few likely candidat
 
 ## Example Usage
 
-NOTE: this section needs to be re-written. The entire mechanism described here has been replaced.
+This is an example site (extremely simple) using goss:
 
-This is a simple annotated website using goss:
+	package main
 
 	import (
 		"fmt"
+		_ "github.com/go-sql-driver/mysql"  // import the SQL driver
+		"github.com/mrmorphic/goss"
+		"github.com/mrmorphic/goss/config"
+		"github.com/mrmorphic/goss/control"
+		"log"
 		"net/http"
-		"database/sql"
-		_ "code.google.com/p/go-mysql-driver/mysql"
-		"goss"
-		"html/template"
 	)
 
 	func main() {
-		// Tell goss where the metadata json file is located. See the ORM section for more information on where it
-		// comes from.
-		goss.SetConnection(openConn, closeConn, "/sites/mysite/assets/goss/metadata.json")
-
-		// Set a rendering callback, using in conjunction with SiteTreeHandler, below
-		goss.SetRenderCallback(RenderCallback)
-
-		// Set up handlers for static stuff
-		http.Handle("/css/", http.StripPrefix("/css", http.FileServer(http.Dir("./css"))))
-		http.Handle("/js/", http.StripPrefix("/js", http.FileServer(http.Dir("./js"))))
-		http.Handle("/images/", http.StripPrefix("/images", http.FileServer(http.Dir("./images"))))
-		http.Handle("/thirdparty/", http.StripPrefix("/thirdparty", http.FileServer(http.Dir("./thirdparty"))))
-
-		// All other URLs are handled by SiteTreeHandler, which will parse the URL against SiteTree in
-		// a similar way to SilverStripe framework, and once it identifies the SiteTree object, invokes
-		// RenderCallback, defined above.
-		http.HandleFunc("/", goss.SiteTreeHandler)
-
-		// Start listening
-		http.ListenAndServe(":8081", nil)
-	}
-
-	var cacheddb *sql.DB
-
-	// A function provided to goss to open connections
-	func openConn() (db *sql.DB, e error) {
-		if cacheddb != nil {
-			return cacheddb, nil
-		}
-
-		db, e = sql.Open("mysql", "myuser:mypassword@tcp(127.0.0.1:3306)/my_ss_database")
+		// Read configuration from file system
+		conf, e := config.ReadFromFile("config.json")
 		if e != nil {
-			return nil, e
+			log.Fatal(e)
+			return
 		}
 
-		// goss uses ANSI compliant queries, so we need to set this, for mysql.
-		_, e = db.Query("SET GLOBAL TRANSACTION ISOLATION LEVEL SERIALIZABLE;")
-		_, e = db.Query("SET GLOBAL sql_mode = 'ANSI'")
-
-		cacheddb = db
-		return db, e
-	}
-
-	// A function provided to goss to close connections.
-	func closeConn(db *sql.DB) {
-		//	fmt.Println("closeConn")
-		//	if db != nil {
-		//		db.Close()
-		//	}
-	}
-
-	var baseURL = "http://127.0.0.1:8081/"
-
-	// Define a controller class for our own functions
-	type GenericController struct {
-		goss.BaseController
-	}
-
-	// Generate a link to a given DataObject. Note that this is very different from how it's implemented in
-	// a SilverStripe site, where each DataObject implements Link. In Go, we don't have inheritance this way.
-	func (c *GenericController) DataLink(obj *goss.DataObject) string {
-		rel, _ := c.Path(obj, "URLSegment")
-		return baseURL + rel
-	}
-
-	func (c *GenericController) HomeLink() string {
-		return baseURL
-	}
-
-	func (c *GenericController) LinkByType(class string) string {
-		ds, e := goss.NewQuery("SiteTree").Where("\"ClassName\"='" + class + "'").Exec(c.DB)
+		// Give goss the configuration object.
+		e = goss.SetConfig(conf)
 		if e != nil {
-			fmt.Printf("error: %s\n", e)
-		}
-		obj := ds.First();
-		return c.DataLink(obj)
-	}
-
-	func (c *GenericController) BaseURL() string {
-		return baseURL
-	}
-
-	func RenderCallback(w http.ResponseWriter, r *http.Request, ctx *goss.DBContext, object *goss.DataObject) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
-		var ro goss.Controller
-
-		// at this point, we want to create a custom render context for the type of page, or the default
-		// so we have a switch on type, create an object and initialise it. Here we just look at the class name
-		// of the object provided, and if it's my custom page type I create a controller of that type, otherwise
-		// just a generic controller.
-
-		switch object.AsString("ClassName") {
-		case "MyPage":
-			ro = new(MyPageController)
-		default:
-			ro = new(GenericController)
+			log.Fatal(e)
+			return
 		}
 
-		// Give the controller the context
-		ro.Init(w, r, ctx, object)
+		// Add controllers. These allow SiteTreeHandler to automatically
+		// create a controller instance and get it to handle the request.
+		control.AddController("HomePage", &HomePageController{})
 
-		// Invoke go's templating engine to render an output.
-		t, _ := template.ParseFiles("templates/" + object.AsString("ClassName") + ".html", "templates/base.html")
-		t.ExecuteTemplate(w, "base", ro)
+		// add a rule that home page is handled by SiteTreeHandler.
+		// @todo add assets and themes rules as well
+		goss.AddMuxRule("^/$", func(w http.ResponseWriter, r *http.Request) {
+			control.SiteTreeHandler(w, r)
+		})
+
+		http.HandleFunc("/", goss.MuxServe)
+		fmt.Printf("==== about to listen\n")
+		e = http.ListenAndServe(":8080", nil)
+		if e != nil {
+			log.Fatal(e)
+		}
 	}
 
-Here is an example of base.html referred to above, with HTML simplified for brevity:
+	// A custom controller. It embeds ContentControllerStruct to get
+	// 'inherited' behaviours, and adds a custom function for use in
+	// the template
+	type HomePageController struct {
+		control.ContentControllerStruct
+	}
 
-	{{define "base"}}<!DOCTYPE html>
+	func (c *HomePageController) Salutation(name string) string {
+		return "Dear " + name
+	}
 
-	<html lang="en">
-		<head>
-	<base href="{{.BaseURL}}">
-		<title>{{.SiteConfig.AsString "Title"}}</title>
-		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+The config.json file might look like:
 
-		{{template "head" .}}
-	</head>
+	{
+		"goss":{
+			"ssroot": "/var/www/demosite",
+			"theme": "simple",
+			"metadata": "/var/www/demosite/assets/goss/metadata.json",
+			"siteUrl": "http://demosite.com/",
+			"database": {
+				"driverName": "mysql",
+				"dataSourceName": "user:password@tcp(127.0.0.1:3306)/ss_demo",
+				"maxIdleConnections": 10,
+				"maxOpenConnections": 100
+			}
+		}
+	}
 
-	<body class="{{.Object.AsString "ClassName"}}">
-		<div class="container">
-			<div class="row">
-				<div class="span10">
-					<a href="{{.BaseURL}}" class="brand" rel="home">
-						<h1>{{.SiteConfig.AsString "Title"}}</h1>
-						<p>{{.SiteConfig.AsString "Tagline"}}</p>
-					</a>
-				</div>
-				<div class="span2">
-					<div class="account-panel">
-					{{if .CurrentMember}}
-						Hi {{.CurrentMember.AsString "FirstName"}}(<a href="$LogoutLink">log out</a>)
-					{{else}}
-						<a href="$LoginLink">log in</a>
-					{{end}}
-					</div>
-				</div>
-			</div>
-
-			<div class="navbar">
-				<div class="navbar-inner">
-					<ul class="nav">
-						{{$base := .}}
-						{{with .Menu 1}}{{range .Items}}
-							<li class="$LinkingMode"><a href="{{$base.DataLink .}}" title="$Title.XML">{{if .AsString "MenuTitle"}}{{.AsString "MenuTitle"}}{{else}}{{.AsString "Title"}}{{end}}</a></li>
-						{{end}}{{end}}
-					</ul>
-				</div>
-			</div>
-
-			<div class="main row" role="main">
-				<div class="inner typography span12">
-					{{template "body" .}}
-				</div>
-			</div>
-
-		</div>
-	</body>
-
-	</html>
-	{{end}}
-
-And this is what the page-type specific template looks like:
-
-	{{define "head"}}<title>Some Title</title>{{end}}
-	{{define "body"}}
-		{{with .Object}}
-		<h1>{{.AsString "Title"}}</h1>
-		{{.AsString "Content"}}
-		{{end}}
-	{{end}}
 
 ## Configuration
 
@@ -349,6 +238,8 @@ Some functions provided by Controller include:
 The template package implements the SilverStripe templating language. The intention is that templates may be developed that are used by both the SilverStripe host app as well as the goss app. Minor alterations may need to be made for templates that are to work in both environments.
 
 As much as possible, the syntax has been made identical to the SilverStripe templating language. The main differences are going to be in templating features, such as $CurrentMember or $Children, which are methods provided by the underlying controller, as goss controllers will not have all of these.
+
+'goss' only understands having one theme directory. It understands the templates, templates/Layout and templates/Include structure within this, but will expect to find all templates in the same theme.
 
 ### Implemented
 
