@@ -11,12 +11,8 @@ import (
 // Base type for BaseController. Goss doesn't directly create this; it is a base for the application
 // to extend.
 type BaseController struct {
-	Object  orm.DataObject
 	Request *http.Request
 	Output  http.ResponseWriter
-
-	// property for unit tests only. Value injected by test, otherwise left unassigned. @todo fix this hack
-	TestBase string
 }
 
 func (c *BaseController) Init(w http.ResponseWriter, r *http.Request) {
