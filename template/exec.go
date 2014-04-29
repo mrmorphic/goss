@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"github.com/mrmorphic/goss"
 	"github.com/mrmorphic/goss/data"
+	"github.com/mrmorphic/goss/orm"
 	"reflect"
+	"strconv"
 )
 
 // executer will render a template using a context, data locater and requirements provider. It returns a rendered
@@ -262,9 +264,10 @@ func (exec *executer) renderChunkLoop(ch *chunk) ([]byte, error) {
 
 	// we expect ctx to be a slice
 	ctxV := reflect.ValueOf(ctxIntf)
+
 	// @todo need to handle arrays as well?
 	if ctxV.Kind() != reflect.Slice && ctxV.Kind() != reflect.Array {
-		return nil, newTemplateError("loop context must be a slice", ch)
+		return nil, newTemplateError(fmt.Sprintf("loop context must be a slice, got '%s'", ctxIntf), ch)
 	}
 
 	for i := 0; i < ctxV.Len(); i++ {
@@ -346,7 +349,11 @@ func (exec *executer) eval(expr *chunk) (interface{}, error) {
 	// case CHUNK_IF:
 	case CHUNK_EXPR_VARFUNC:
 		return exec.evalVarFunc(expr)
-	case CHUNK_EXPR_NUMBER, CHUNK_EXPR_STRING:
+	case CHUNK_EXPR_NUMBER:
+		// convert to an int
+		// @todo if we could parse decimal points and this had one, convert to float64
+		return strconv.Atoi(expr.m["value"].(string))
+	case CHUNK_EXPR_STRING:
 		return expr.m["value"], nil
 	case CHUNK_EXPR_NOT:
 		return exec.evalNot(expr)
@@ -383,10 +390,8 @@ func (exec *executer) evalVarFunc(expr *chunk) (interface{}, error) {
 	}
 
 	// @todo if exec.context() implements evaluater, use it.
-	// value := data.Eval(exec.context(), name, paramList...)
 	value := exec.evaluate(exec.context(), name, paramList...)
 
-	// value := exec.locator.Get(exec.context(), name, paramList)
 	fmt.Printf("... locator said: %s\n", value)
 	if chained == nil {
 		return value, e
@@ -422,7 +427,7 @@ func (exec *executer) evalNot(expr *chunk) (interface{}, error) {
 
 	b, e := exec.boolOf(value)
 	if e != nil {
-		return nil, newTemplateError(fmt.Sprintf("If condition must be boolean '%s'", valueChunk.printable(0)), expr)
+		return nil, newTemplateError(fmt.Sprintf("If condition must be boolean '%s' (value %s)", valueChunk.printable(0), value), expr)
 	}
 
 	return !b, e
