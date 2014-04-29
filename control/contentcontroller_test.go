@@ -7,19 +7,32 @@ import (
 	"testing"
 )
 
-type testController struct {
-	BaseController
+// This type will represent a contained or embedded type within testContainer.
+// This is analogous to BaseController
+type testContained struct {
+	TestBase string
+}
+
+func (c *testContainer) SiteConfig() orm.DataObject {
+	r := orm.NewDataObjectMap()
+	r["Name"] = "SiteName"
+	return r
+}
+
+// This type is the container. It is analagous to ContentController.
+type testContainer struct {
+	testContained
 	Fallback orm.DataObject
 
 	Test string
 }
 
-func (c *testController) Init(obj orm.DataObject) {
-	c.Object = obj
+func (c *testContainer) Init(obj orm.DataObject) {
+	c.Fallback = obj
 }
 
 func TestRequireJS(t *testing.T) {
-	cc := &testController{}
+	cc := &testContainer{}
 	cc.Test = "test result"
 	cc.TestBase = "test base result"
 
@@ -46,6 +59,10 @@ func TestRequireJS(t *testing.T) {
 	if v.(string) != "DO field" {
 		t.Error(fmt.Errorf("Expected 'DO field', got %s", v).Error())
 	}
+
+	v = data.Eval(cc, "SiteConfig")
+	fmt.Printf("SiteConfig is %s\n", v)
+	// test that a function on BaseController can be fetched
 
 	// source := `<html><head><title>x</title></head><body><% require javascript("themes/simple/javascript/test.js") %><div>test</div></body></html>`
 	// context := map[string]interface{}{}
