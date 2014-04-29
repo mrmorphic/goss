@@ -70,18 +70,63 @@ func (d *DefaultLocater) Get(name string, args ...interface{}) interface{} {
 		// we couldn't work it out, just return nil with no error.
 		return nil
 	case value.Kind() == reflect.Func:
-		// reflection funkiness; create a slice of args asserted as reflect.Value.
-		a := make([]reflect.Value, 0)
-		for _, x := range args {
-			a = append(a, reflect.ValueOf(x))
-		}
-		result := value.Call(a)
+		result := value.Call(getConvertedParams(value, args))
 
 		// we ignore any other values returned.
 		return result[0].Interface()
 	}
 
 	return value.Interface()
+}
+
+// Given a method Value and a collection of arguments to the method, return a slice
+// of Value objects for those args. Also handle certain cases of automatic type
+// conversion that are normal in a SilverStripe site (because of PHP type system.)
+func getConvertedParams(method reflect.Value, args []interface{}) []reflect.Value {
+	methodType := method.Type()
+
+	paramIndex := 0
+	nParams := methodType.NumIn()
+
+	a := make([]reflect.Value, 0)
+	for _, x := range args {
+		// get the param definition, if we haven't exhausted them already
+		var param reflect.Type
+		hasParam := false
+		if paramIndex < nParams {
+			param = methodType.In(paramIndex)
+			hasParam = true
+		}
+
+		// determine if conversion is required
+		if hasParam {
+			x = convertToType(x, param)
+		}
+
+		// finally add the value to the list of parameters
+		a = append(a, reflect.ValueOf(x))
+		paramIndex++
+	}
+
+	return a
+}
+
+func convertToType(x interface{}, t reflect.Type) interface{} {
+	argType := reflect.TypeOf(x)
+	if argType.AssignableTo(t) {
+		// if assignable, it's OK
+		return x
+	}
+
+	if argType.ConvertibleTo(t) {
+		// if convertible by runtime, convert it
+		v := reflect.ValueOf(x)
+		v.Convert(t)
+		return v.Interface()
+	}
+
+	// General case, just return what we got
+	return x
 }
 
 // Return string representation of the field
