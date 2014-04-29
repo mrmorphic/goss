@@ -139,7 +139,7 @@ func (exec *executer) renderChunkIf(ch *chunk) ([]byte, error) {
 	fmt.Printf("cond: %s\n", cond)
 	b, e := exec.boolOf(cond)
 	if e != nil {
-		return nil, newTemplateError(fmt.Sprintf("If condition must be boolean '%s'", condition.printable(0)), ch)
+		return nil, newTemplateError(fmt.Sprintf("If condition must be boolean '%s' (value %s)", condition.printable(0), cond), ch)
 	}
 
 	render := truePart
@@ -162,13 +162,27 @@ func (exec *executer) boolOf(value interface{}) (bool, error) {
 	}
 	fmt.Printf("boolOf %s\n", value)
 
-	switch value := value.(type) {
+	switch v := value.(type) {
 	case bool, *bool:
-		return value.(bool), nil
+		return v.(bool), nil
 	case int, *int:
-		return value != 0, nil
+		return v != 0, nil
 	case string, *string:
-		return value != "", nil
+		return v != "", nil
+	}
+
+	// if the value is a struct, *struct, non-empty map or non-empty slice, it will be considered true as well.
+	v := reflect.ValueOf(value)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	k := v.Kind()
+	switch {
+	case k == reflect.Struct:
+		// if its a struct its considered to have a value
+		return true, nil
+	case k == reflect.Map || k == reflect.Slice || k == reflect.Array:
+		return v.Len() > 0, nil
 	}
 
 	// if value is a function, test that it returns boolean
