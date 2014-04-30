@@ -66,7 +66,8 @@ func (exec *executer) render() ([]byte, error) {
 		return nil, e
 	}
 
-	fmt.Printf("exec.render: output is %s\n", bytes)
+	// fmt.Printf("exec.render: output is %s\n", bytes)
+
 	// insert the header tags
 	bytes, e = exec.require.InsertHeadTags(bytes)
 	if e != nil {
@@ -114,7 +115,7 @@ func (exec *executer) renderChunkBlock(ch *chunk) ([]byte, error) {
 		}
 		result = append(result, b...)
 	}
-	fmt.Printf("... result is %s\n", result)
+	// fmt.Printf("... result is %s\n", result)
 	return result, nil
 }
 
