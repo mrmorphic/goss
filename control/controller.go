@@ -15,11 +15,6 @@ type BaseController struct {
 	Output  http.ResponseWriter
 }
 
-func (c *BaseController) Init(w http.ResponseWriter, r *http.Request) {
-	c.Request = r
-	c.Output = w
-}
-
 func (ctl *BaseController) Menu(level int) (orm.DataList, error) {
 	q := orm.NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ParentID\"=0").Where("\"ShowInMenus\"=1").Sort("\"Sort\" ASC")
 	v, e := q.Run()
