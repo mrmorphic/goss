@@ -396,7 +396,7 @@ func (exec *executer) evalVarFunc(expr *chunk) (interface{}, error) {
 		// If we're looking for $Up, use the next most top of stack,
 		// or top of stack if we're already at top of stack
 		if len(exec.contextStack) > 1 {
-			value = exec.contextStack[len(exec.contextStack-2)]
+			value = exec.contextStack[len(exec.contextStack)-2]
 		} else {
 			value = exec.contextStack[0]
 		}
