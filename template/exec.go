@@ -380,22 +380,36 @@ func (exec *executer) evalVarFunc(expr *chunk) (interface{}, error) {
 	name := expr.m["name"].(string)
 	fmt.Printf("... evaluating var/function %s\n", name)
 	chained := expr.m["chained"].(*chunk)
+
 	params := expr.m["params"].(*chunk) // block of further chunks
-	if params != nil {
-		fmt.Printf("exec sees params %s\n", params.printable(0))
-	}
 	paramList, e := exec.evalBlock(params)
 	if e != nil {
 		return nil, e
 	}
 
-	// @todo if exec.context() implements evaluater, use it.
-	value := exec.evaluate(exec.context(), name, paramList...)
+	var value interface{}
+	switch {
+	case name == "Top":
+		// If we're looking for $Top, use top of stack as value
+		value = exec.contextStack[0]
+	case name == "Up":
+		// If we're looking for $Up, use the next most top of stack,
+		// or top of stack if we're already at top of stack
+		if len(exec.contextStack) > 1 {
+			value = exec.contextStack[len(exec.contextStack-2)]
+		} else {
+			value = exec.contextStack[0]
+		}
+	default:
+		value = exec.evaluate(exec.context(), name, paramList...)
+	}
 
 	fmt.Printf("... locator said: %s\n", value)
 	if chained == nil {
 		return value, e
 	} else {
+		// If we have a chained value (x.y), push the x value as the next context, and evaluate y in that
+		// context.
 		exec.push(value)
 		v, e := exec.eval(chained)
 		exec.pop()
