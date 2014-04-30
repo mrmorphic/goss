@@ -9,32 +9,41 @@ import (
 
 // This type will represent a contained or embedded type within testContainer.
 // This is analogous to BaseController
-type testContained struct {
-	TestBase string
+type first struct {
+	TestFirstField string
 }
 
-func (c *testContainer) SiteConfig() orm.DataObject {
-	r := orm.NewDataObjectMap()
-	r["Name"] = "SiteName"
-	return r
+func (c *first) TestFirstFunc() string {
+	return "first func"
 }
 
 // This type is the container. It is analagous to ContentController.
-type testContainer struct {
-	testContained
+type second struct {
+	first
 	Fallback orm.DataObject
 
-	Test string
+	TestSecondField string
 }
 
-func (c *testContainer) Init(obj orm.DataObject) {
-	c.Fallback = obj
+func (c *second) TestSecondFunc() string {
+	return "second func"
+}
+
+type third struct {
+	second
+
+	TestThirdField string
+}
+
+func (c *third) TestThirdFunc() string {
+	return "third func"
 }
 
 func TestRequireJS(t *testing.T) {
-	cc := &testContainer{}
-	cc.Test = "test result"
-	cc.TestBase = "test base result"
+	cc := &third{}
+	cc.TestFirstField = "first field"
+	cc.TestSecondField = "second field"
+	cc.TestThirdField = "third field"
 
 	obj := orm.NewDataObjectMap()
 	obj["TestDOField"] = "DO field"
@@ -42,34 +51,21 @@ func TestRequireJS(t *testing.T) {
 
 	cc.Fallback = obj
 
-	// test that properties on ContentController can be fetched
-	v := data.Eval(cc, "Test")
-	if v.(string) != "test result" {
-		t.Error(fmt.Errorf("Expected 'test result', got %s", v).Error())
+	tests := map[string]interface{}{
+		"TestFirstField":  "first field",
+		"TestFirstFunc":   "first func",
+		"TestSecondField": "second field",
+		"TestSecondFunc":  "second func",
+		"TestThirdField":  "third field",
+		"TestThirdFunc":   "third func",
+		"AnotherField":    "foo",
 	}
 
-	// test that properties within embedded BaseController can be fetched
-	v = data.Eval(cc, "TestBase")
-	if v.(string) != "test base result" {
-		t.Error(fmt.Errorf("Expected 'test base result', got %s", v).Error())
+	for expr, expected := range tests {
+		v := data.Eval(cc, expr)
+		fmt.Printf("v=%s\n", v)
+		if v.(string) != expected {
+			t.Error(fmt.Errorf("Expected '%s', got %s", expected, v).Error())
+		}
 	}
-
-	// test that properties on the DataObject can be fetched
-	v = data.Eval(cc, "TestDOField")
-	if v.(string) != "DO field" {
-		t.Error(fmt.Errorf("Expected 'DO field', got %s", v).Error())
-	}
-
-	v = data.Eval(cc, "SiteConfig")
-	fmt.Printf("SiteConfig is %s\n", v)
-	// test that a function on BaseController can be fetched
-
-	// source := `<html><head><title>x</title></head><body><% require javascript("themes/simple/javascript/test.js") %><div>test</div></body></html>`
-	// context := map[string]interface{}{}
-
-	// b, e := compileAndExecute(source, context)
-	// if e != nil {
-	// 	t.Error(e.Error())
-	// 	return
-	// }
 }
