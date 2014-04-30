@@ -4,15 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mrmorphic/goss/orm"
-	"net/http"
+	// "net/http"
 	"strconv"
 )
 
 // Base type for BaseController. Goss doesn't directly create this; it is a base for the application
 // to extend.
 type BaseController struct {
-	Request *http.Request
-	Output  http.ResponseWriter
 }
 
 func (ctl *BaseController) Menu(level int) (orm.DataList, error) {

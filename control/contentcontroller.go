@@ -10,19 +10,31 @@ import (
 	"strings"
 )
 
+type ContentController interface {
+	// used to set the DataObject for a content controller
+	SetObject(orm.DataObject)
+
+	// set the context object for rendering. This is required because there is no inheritance; calling
+	// ServerHTTP on a controller that embeds ContentControllerStruct gets the embedded object, not
+	// the output object, so we can't pick up symbol references from upstream.
+	SetContext(interface{})
+}
+
 // ContentController is intended as a simple page-based controller. When a DataObject is mapped to this controller,
 // it will render by locating the templates for the page type and rendering using the templating engine. Typically
 // ContentController is embedded into other types that implement functions specific to that type that can be used
 // in the templates.
-type ContentController struct {
+type ContentControllerStruct struct {
 	BaseController
+
+	context interface{}
 
 	Fallback orm.DataObject
 }
 
-func (c *ContentController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (c *ContentControllerStruct) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	templates := []string{"Page", c.GetObject().GetStr("ClassName")}
-	e := template.RenderWith(w, templates, c, nil)
+	e := template.RenderWith(w, templates, c.context, nil)
 
 	if e != nil {
 		ErrorHandler(w, e)
@@ -30,11 +42,14 @@ func (c *ContentController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c *ContentController) SetObject(obj orm.DataObject) {
+func (c *ContentControllerStruct) SetContext(ctx interface{}) {
+	c.context = ctx
+}
+func (c *ContentControllerStruct) SetObject(obj orm.DataObject) {
 	c.Fallback = obj
 }
 
-func (c *ContentController) GetObject() orm.DataObject {
+func (c *ContentControllerStruct) GetObject() orm.DataObject {
 	return c.Fallback
 }
 
@@ -154,9 +169,10 @@ func renderWithMatchedController(w http.ResponseWriter, r *http.Request, page or
 	}
 
 	// if the controller is a ContentController then set the object.
-	if cc, ok := c.(*ContentController); ok {
+	if cc, ok := c.(ContentController); ok {
 		fmt.Printf("renderWithMatchedController: setting controller object to %s\n", page)
 		cc.SetObject(page)
+		cc.SetContext(c)
 	} else {
 		fmt.Printf("renderWithMatchedController: not a *ContentController: %s", c)
 	}
