@@ -262,6 +262,8 @@ This section lists features of the SilverStripe templating language that have be
  *	<% require ... %>
  *	<% cached %> blocks are parsed correctly and contents substituted, with
  	no actual caching (compiled templates are, however, cached)
+ *	XML and RAW formatting options on fields (implemented differently from SS,
+	directly in the template injection rather than field function.)
  
 ### Not implemented
 
