@@ -6,6 +6,7 @@ import (
 	"github.com/mrmorphic/goss"
 	"github.com/mrmorphic/goss/data"
 	"github.com/mrmorphic/goss/orm"
+	"html"
 	"reflect"
 	"strconv"
 )
@@ -120,6 +121,14 @@ func (exec *executer) renderChunkBlock(ch *chunk) ([]byte, error) {
 }
 
 func (exec *executer) renderChunkVarFunc(ch *chunk) ([]byte, error) {
+	// extract off a formatter if there is one. On nested calls, this usually does nothing as it
+	// extracted at the top of the chain.
+	// @todo handle the formatters properly; this is the responsibility of field objects, not the executer.
+	formatterName := exec.extractFormatter(ch)
+	if formatterName == "" {
+		formatterName = "XML"
+	}
+
 	v, e := exec.eval(ch)
 	if e != nil {
 		return nil, e
@@ -127,7 +136,57 @@ func (exec *executer) renderChunkVarFunc(ch *chunk) ([]byte, error) {
 	if v == nil {
 		return []byte{}, nil
 	}
-	return []byte(fmt.Sprintf("%s", v)), nil
+
+	s := fmt.Sprintf("%s", v)
+	switch formatterName {
+	case "XML":
+		fmt.Printf("escaping as XML")
+		return []byte(html.EscapeString(s)), nil
+	case "RAW":
+		return []byte(s), nil
+	case "ATT", "JS", "SQL":
+		panic("ATT, JS and SQL formatters are not implemented")
+	default:
+		// should not execute with a default of XML
+		return []byte(s), nil
+	}
+}
+
+// follow the chain on expr. If the last item in the chain is known to be a formatter, remove that
+// chunk and return
+func (exec *executer) extractFormatter(expr *chunk) string {
+	fmt.Printf("extractFormatter called with %s\n", expr)
+	first := expr
+	next := expr.m["chained"].(*chunk)
+	if next == nil {
+		fmt.Printf("no chain")
+		return ""
+	}
+
+	// we now have 'first' and 'next' as the consequetive window
+	for {
+		ch := next.m["chained"].(*chunk)
+		if ch == nil {
+			// next is the last in the chain
+			break
+		}
+		first = next
+		next = ch
+	}
+
+	// if next is a formatting function name, we've found a formatter. Otherwise
+	// there isn't one.
+	if next.kind != CHUNK_EXPR_VARFUNC {
+		fmt.Printf("%s not a var func", next)
+		return ""
+	}
+	name := next.m["name"].(string)
+	fmt.Printf("formatter name is %s\n", name)
+	if name == "XML" || name == "RAW" || name == "ATT" || name == "JS" || name == "SQL" {
+		first.m["chained"] = (*chunk)(nil)
+		return name
+	}
+	return ""
 }
 
 func (exec *executer) renderChunkIf(ch *chunk) ([]byte, error) {
@@ -407,7 +466,7 @@ func (exec *executer) evalVarFunc(expr *chunk) (interface{}, error) {
 
 	fmt.Printf("... locator said: %s\n", value)
 	if chained == nil {
-		return value, e
+		return value, nil
 	} else {
 		// If we have a chained value (x.y), push the x value as the next context, and evaluate y in that
 		// context.
