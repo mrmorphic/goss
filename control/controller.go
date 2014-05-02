@@ -19,11 +19,17 @@ func (ctl *BaseController) Init(r *http.Request) {
 }
 
 func (ctl *BaseController) Menu(level int) (orm.DataList, error) {
-	q := orm.NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ParentID\"=0").Where("\"ShowInMenus\"=1").Sort("\"Sort\" ASC")
-	v, e := q.Run()
-	if e != nil {
-		return nil, e
+	if level == 1 {
+		q := orm.NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ParentID\"=0").Where("\"ShowInMenus\"=1").Sort("\"Sort\" ASC")
+		v, e := q.Run()
+		if e != nil {
+			return nil, e
+		}
+
+		return v.(orm.DataList), nil
 	}
+	return nil, nil
+}
 
 	return v.(orm.DataList), nil
 }
