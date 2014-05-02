@@ -10,7 +10,7 @@ import (
 func TestFallback(t *testing.T) {
 	context := map[string]interface{}{
 		"prop1": "value1",
-		"_fallback": map[string]interface{}{
+		"Fallback": map[string]interface{}{
 			"prop2": "value2",
 		},
 	}
