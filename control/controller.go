@@ -4,13 +4,18 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mrmorphic/goss/orm"
-	// "net/http"
+	"net/http"
 	"strconv"
 )
 
 // Base type for BaseController. Goss doesn't directly create this; it is a base for the application
 // to extend.
 type BaseController struct {
+	request *http.Request
+}
+
+func (ctl *BaseController) Init(r *http.Request) {
+	ctl.request = r
 }
 
 func (ctl *BaseController) Menu(level int) (orm.DataList, error) {

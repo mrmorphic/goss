@@ -168,6 +168,8 @@ func renderWithMatchedController(w http.ResponseWriter, r *http.Request, page or
 		return
 	}
 
+	c.Init(r)
+
 	// if the controller is a ContentController then set the object.
 	if cc, ok := c.(ContentController); ok {
 		fmt.Printf("renderWithMatchedController: setting controller object to %s\n", page)
