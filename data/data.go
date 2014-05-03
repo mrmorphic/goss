@@ -5,6 +5,7 @@ import (
 	"github.com/mrmorphic/goss"
 	"github.com/mrmorphic/goss/convert"
 	"reflect"
+	"strconv"
 )
 
 func Eval(context interface{}, name string, args ...interface{}) interface{} {
@@ -158,6 +159,14 @@ func convertToType(x interface{}, t reflect.Type) interface{} {
 		return v.Interface()
 	}
 
+	// if x is a string and t is an int, convert
+	if argType.Kind() == reflect.String && t.Kind() == reflect.Int {
+		i, e := strconv.Atoi(x.(string))
+		if e != nil {
+			i = 0
+		}
+		return i
+	}
 	// General case, just return what we got
 	return x
 }
