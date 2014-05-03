@@ -11,6 +11,38 @@ func Eval(context interface{}, name string, args ...interface{}) interface{} {
 	return NewDefaultLocater(context).Get(name, args...)
 }
 
+// Given a context, set the property 'name' to the specified value. Property should be
+// a struct, *struct or map, otherwise it will panic.
+func Set(context interface{}, name string, value interface{}) {
+	// fmt.Printf("\nSet %s.%s in %s\n", context, name, value)
+	ctx := reflect.ValueOf(context)
+	if ctx.Kind() == reflect.Ptr {
+		ctx = ctx.Elem()
+	}
+
+	v := reflect.ValueOf(value)
+
+	switch ctx.Kind() {
+	case reflect.Struct:
+		// get the field and its type
+		f := ctx.FieldByName(name)
+		// we only try to set the field if the struct defines it.
+		if !IsZeroOfUnderlyingType(f) {
+			t := f.Type()
+
+			// ensure that the type is assignable to the field
+			vi := convertToType(v.Interface(), t)
+
+			// now set it
+			f.Set(reflect.ValueOf(vi))
+		}
+	case reflect.Map:
+		ctx.SetMapIndex(reflect.ValueOf(name), v)
+	default:
+		panic("data.Set only supports contexts that are structs or maps")
+	}
+}
+
 // defaultLocator is an implementation of DataLocator, with specific behaviours that make it useful in
 // the context of SilverStripe. Specifically:
 //  * given a name and optional args, will locate a function or property that will meet that.
