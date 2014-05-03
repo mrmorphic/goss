@@ -6,9 +6,9 @@ package orm
 type DataList interface {
 	DataQuery
 
-	Append(DataObject)
+	Append(interface{})
 
-	Items() ([]DataObject, error)
+	Items() ([]interface{}, error)
 }
 
 type DataListStruct struct {
@@ -18,14 +18,14 @@ type DataListStruct struct {
 	fetched bool
 
 	// once we've  executed the query, we'll store the resulting items here.
-	items []DataObject
+	items []interface{}
 }
 
 func NewDataList(query DataQuery) DataList {
-	return &DataListStruct{items: make([]DataObject, 0, 10), query: query}
+	return &DataListStruct{items: make([]interface{}, 0, 10), query: query}
 }
 
-func (set *DataListStruct) Append(do DataObject) {
+func (set *DataListStruct) Append(do interface{}) {
 	set.fetched = true
 	set.items = append(set.items, do)
 }
@@ -54,12 +54,12 @@ func (set *DataListStruct) Run() (interface{}, error) {
 
 	// @todo ensure the return type is OK for us.
 
-	set.items = res.([]DataObject)
+	set.items = res.([]interface{})
 
 	return set.items, nil
 }
 
-func (set *DataListStruct) Items() ([]DataObject, error) {
+func (set *DataListStruct) Items() ([]interface{}, error) {
 	if !set.fetched {
 		_, e := set.Run()
 		if e != nil {
@@ -70,7 +70,7 @@ func (set *DataListStruct) Items() ([]DataObject, error) {
 }
 
 // @todo perform on-demand fetch
-func (set *DataListStruct) First() DataObject {
+func (set *DataListStruct) First() interface{} {
 	if !set.fetched {
 		_, e := set.Run()
 		if e != nil {

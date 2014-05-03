@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/mrmorphic/goss/data"
 	"strconv"
 	"strings"
 	"time"
@@ -141,13 +142,17 @@ func NewQuerySQL(className string) DataQuery {
 	return q
 }
 
-func DataObjectFromRow(r *sql.Rows) (obj DataObject, e error) {
+func DataObjectFromRow(r *sql.Rows) (interface{}, error) {
 	// Get columns
 	cols, e := r.Columns()
 	colCount := len(cols)
+	classNameCol := -1
 
 	var field []interface{}
 	for i := 0; i < colCount; i++ {
+		if cols[i] == "ClassName" {
+			classNameCol = i
+		}
 		switch {
 		case cols[i][:2] == "b:":
 			field = append(field, new(sql.NullBool))
@@ -176,10 +181,24 @@ func DataObjectFromRow(r *sql.Rows) (obj DataObject, e error) {
 		return nil, e
 	}
 
-	m := NewDataObjectMap()
+	className := ""
+	if classNameCol >= 0 {
+		className = flatten(field[classNameCol]).(string)
+	}
+
+	m := GetModelInstance(className)
+	// m := NewDataObjectMap()
+	mdo, ok := m.(DataObject)
 
 	for i, c := range cols {
-		m[c] = flatten(field[i])
+		v := flatten(field[i])
+		if ok {
+
+			mdo.Set(c, v)
+		} else {
+			// doesn't implement DataObject, so may be a plain struct, so use data package.
+			data.Set(m, c, v)
+		}
 	}
 
 	return m, nil

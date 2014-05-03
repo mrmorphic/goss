@@ -12,7 +12,7 @@ var dbMetadata *DBMetadata
 
 // A map of class names to DataObject instances which is used when we get objects
 // from the database.
-var models map[string]DataObject
+var models map[string]interface{}
 
 // DataObject is an interface for items returned by the ORM.
 type DataObject interface {
@@ -46,7 +46,7 @@ func IsHierarchical(className string) bool {
 // Register one or more model instances. The map key is the ClassName value returned in
 // a data object fetch, and the instance is an object that will be used as a prototype
 // for generating new DataObject instances.
-func RegisterModels(m map[string]DataObject) {
+func RegisterModels(m map[string]interface{}) {
 	// @todo make concurrency-safe.
 	for k, v := range m {
 		models[k] = v
@@ -56,7 +56,7 @@ func RegisterModels(m map[string]DataObject) {
 // Given a class name, return a DataObject instance. If className has been registered
 // using RegisterModels, then a new, empty instance of the data object concrete type
 // is returned. Otherwise, a DataObjectMap is returned.
-func GetModelInstance(className string) DataObject {
+func GetModelInstance(className string) interface{} {
 	proto := models[className]
 	if proto == nil {
 		return NewDataObjectMap()
@@ -69,5 +69,9 @@ func GetModelInstance(className string) DataObject {
 	}
 
 	new := reflect.New(t)
-	return new.Interface().(DataObject)
+	return new.Interface()
+}
+
+func init() {
+	models = map[string]interface{}{}
 }

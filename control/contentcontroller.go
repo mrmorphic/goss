@@ -3,6 +3,7 @@ package control
 import (
 	"errors"
 	"fmt"
+	"github.com/mrmorphic/goss/data"
 	"github.com/mrmorphic/goss/orm"
 	"github.com/mrmorphic/goss/template"
 	"net/http"
@@ -12,7 +13,7 @@ import (
 
 type ContentController interface {
 	// used to set the DataObject for a content controller
-	SetObject(orm.DataObject)
+	SetObject(interface{})
 
 	// set the context object for rendering. This is required because there is no inheritance; calling
 	// ServerHTTP on a controller that embeds ContentControllerStruct gets the embedded object, not
@@ -29,11 +30,12 @@ type ContentControllerStruct struct {
 
 	context interface{}
 
-	Fallback orm.DataObject
+	Fallback interface{}
 }
 
 func (c *ContentControllerStruct) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	templates := []string{"Page", c.GetObject().GetStr("ClassName")}
+	className := data.Eval(c.GetObject(), "ClassName").(string)
+	templates := []string{"Page", className}
 	e := template.RenderWith(w, templates, c.context, nil)
 
 	if e != nil {
@@ -45,11 +47,11 @@ func (c *ContentControllerStruct) ServeHTTP(w http.ResponseWriter, r *http.Reque
 func (c *ContentControllerStruct) SetContext(ctx interface{}) {
 	c.context = ctx
 }
-func (c *ContentControllerStruct) SetObject(obj orm.DataObject) {
+func (c *ContentControllerStruct) SetObject(obj interface{}) {
 	c.Fallback = obj
 }
 
-func (c *ContentControllerStruct) GetObject() orm.DataObject {
+func (c *ContentControllerStruct) GetObject() interface{} {
 	return c.Fallback
 }
 
@@ -163,9 +165,10 @@ func SiteTreeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Given a page, find a controller that says it can handle it, and render the page with that.
-func renderWithMatchedController(w http.ResponseWriter, r *http.Request, page orm.DataObject) {
+func renderWithMatchedController(w http.ResponseWriter, r *http.Request, page interface{}) {
 	// locate a controller
-	c, e := getControllerInstance(page.GetStr("ClassName"))
+	className := data.Eval(page, "ClassName").(string)
+	c, e := getControllerInstance(className)
 
 	if e != nil {
 		ErrorHandler(w, e)
@@ -176,11 +179,8 @@ func renderWithMatchedController(w http.ResponseWriter, r *http.Request, page or
 
 	// if the controller is a ContentController then set the object.
 	if cc, ok := c.(ContentController); ok {
-		// fmt.Printf("renderWithMatchedController: setting controller object to %s\n", page)
 		cc.SetObject(page)
 		cc.SetContext(c)
-	} else {
-		// fmt.Printf("renderWithMatchedController: not a *ContentController: %s", c)
 	}
 
 	//	fmt.Printf("after init c is %s\n", c)
