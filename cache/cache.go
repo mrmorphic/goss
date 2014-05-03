@@ -12,7 +12,6 @@ package cache
 //  * add to cache with a policy expiry function. The cache will poll the policy expiry functions.
 
 import (
-	"fmt"
 	"sync"
 	"time"
 )
