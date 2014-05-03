@@ -2,6 +2,7 @@ package control
 
 import (
 	"errors"
+	"github.com/mrmorphic/goss/orm"
 	"net/http"
 	"reflect"
 )
@@ -23,6 +24,10 @@ var controllers map[string]Controller
 
 func init() {
 	controllers = map[string]Controller{}
+
+	orm.RegisterModels(map[string]interface{}{
+		"Page": &DataObjectBase{},
+	})
 }
 
 // AddController registers a controller for a data object type
