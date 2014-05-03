@@ -2,7 +2,6 @@ package data
 
 import (
 	"fmt"
-	"github.com/mrmorphic/goss/orm"
 	"testing"
 )
 
@@ -26,15 +25,6 @@ func TestFallback(t *testing.T) {
 	}
 }
 
-func TestDataObject(t *testing.T) {
-	obj := orm.NewDataObjectMap()
-	obj.Set("foo", "bar")
-
-	if x := obj.GetStr("foo"); x != "bar" {
-		t.Error("Expected foo to be 'bar', got %s", x)
-	}
-}
-
 // This type will represent a contained or embedded type within testContainer.
 // This is analogous to BaseController
 type first struct {
@@ -48,7 +38,7 @@ func (c *first) TestFirstFunc() string {
 // This type is the container. It is analagous to ContentController.
 type second struct {
 	first
-	Fallback orm.DataObject
+	Fallback interface{}
 
 	TestSecondField string
 }
@@ -76,7 +66,7 @@ func TestControllerStructure(t *testing.T) {
 	cc.TestSecondField = "second field"
 	cc.TestThirdField = "third field"
 
-	obj := orm.NewDataObjectMap()
+	obj := map[string]interface{}{}
 	obj["TestDOField"] = "DO field"
 	obj["AnotherField"] = "foo"
 

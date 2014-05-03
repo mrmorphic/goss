@@ -177,7 +177,7 @@ func TestLayout(t *testing.T) {
 	capture := &responseCapture{}
 	context := make(map[string]interface{})
 
-	e = RenderWith(capture, []string{"TestA", "TestALayout"}, context, nil, nil)
+	e = RenderWith(capture, []string{"TestA", "TestALayout"}, context, nil)
 
 	if string(capture.response) != "startTestALayoutend" {
 		t.Errorf("main/layout response was not expected: %s", capture.response)
