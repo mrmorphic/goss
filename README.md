@@ -50,6 +50,7 @@ Most features of SilverStripe are not implemented in goss. A few likely candidat
  *	Support for access to functions within the SilverStripe application rather than accessing database directly (e.g.
  	re-use of business rule logic)
 
+
 ## Example Usage
 
 This is an example site (extremely simple) using goss:
@@ -176,9 +177,10 @@ ConfigProvider assumes that the configuration data is organised in a name space.
 
 ## Objects and Interfaces
 
-Go's object model is very different from PHP's object model. For example, subclasses are used extensively, and in SilverStripe, so are extensions. Go uses interfaces extensively and composition of independent components.
+Go's object model is very different from PHP and SilverStripe's object model. For example, subcasses and extensions are used extensively in SilverStripe. Go uses interfaces extensively and composition of independent components, with
+subclassing not being a language feature.
 
-goss keeps as much as possible to how idiomatic Go works, while providing the conceptual framework of SilverStripe. To this end, goss works mostly with interface{}, which can be a value of any type. Concrete types are provided by the library as well.
+goss keeps as much as possible to how idiomatic Go works, while providing the conceptual framework of SilverStripe where it makes sense. To this end, goss works mostly with interface{}, which can be a value of any type. Concrete types are provided by the library as well.
 
 Key interfaces of goss include:
 
@@ -191,9 +193,36 @@ Key interfaces of goss include:
  *	RequirementsProvider - interface to a requirements back end, with a
  	default implementation of goss.requirements.DefaultRequirements
 
+The current mapping from SilverStripe concepts to Go/goss:
+
+ *	Controller - the request handling aspect of Controller is a direct
+ 	parallel to net/http's Handler interface. To assist with some of the
+ 	utility behaviours of SilverStripe's controllers, BaseController can
+ 	be embedded in a controller type.
+ *	DataObject - generally matches interface{}. See "DataObject Representation"
+ 	below.
+
 ## ORM
 
-### DataObject representation
+### DataObject Representation
+
+Similar to the runtime's encoding/json package, goss attempts to be able to
+map any DataObject read from the database into a corresponding struct, or into a map if there is no appropriate structure.
+
+To have the ORM read into a predefined struct, two steps are required:
+
+ 1.	You need to register an empty instance of the type with the ORM,
+	which maintains a mapping of ClassName values to such instances.
+ 2. In the struct, embed orm.DataObjectBase, which includes the common fields
+	to all DataObjects.
+
+Whenever an ORM query is made, the ORM will automatically store values from the database record into the struct's properties by name. Fields returned from the DB that are not in the struct are ignored.
+
+If the ORM does not have a matching registered class, it will use DataObjectMap as the concrete type, which is a map of strings to interface{}.
+
+A consequence of this is that it's possible to get a list of objects that contains both map and struct-based object.
+
+(There is likely to be more work here.)
 
 ### DataList
 
