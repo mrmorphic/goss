@@ -83,8 +83,12 @@ func (d *DefaultLocater) Get(name string, args ...interface{}) interface{} {
 		// Value, not the Elem.
 		value = ctxOrig.MethodByName(name)
 		if IsZeroOfUnderlyingType(value) {
-			// if no function, test for struct field of that name. @todo lowercase hidden?
-			value = ctx.FieldByName(name)
+			// then try Get<name>, which lets a model override a property with a getter.
+			value = ctxOrig.MethodByName("Get" + name)
+			if IsZeroOfUnderlyingType(value) {
+				// if no function, test for struct field of that name. @todo lowercase hidden?
+				value = ctx.FieldByName(name)
+			}
 		}
 	}
 
