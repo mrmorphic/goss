@@ -65,6 +65,8 @@ func findPageToRender(r *http.Request) (int, error) {
 	if len(path) == 0 || path[0] == "" {
 		// find a home page ID
 		r, e := orm.Query("select \"ID\" from \"SiteTree_Live\" where \"URLSegment\"='home' and \"ParentID\"=0")
+		defer r.Close()
+
 		if e != nil {
 			return 0, e
 		}
@@ -81,6 +83,8 @@ func findPageToRender(r *http.Request) (int, error) {
 	currParentID := 0
 	for _, p := range path {
 		r, e := orm.Query("select \"ID\",\"ParentID\" from \"SiteTree_Live\" where \"URLSegment\"='" + p + "' and \"ParentID\"=" + strconv.Itoa(currParentID))
+		defer r.Close()
+
 		if e != nil {
 			return 0, e
 		}

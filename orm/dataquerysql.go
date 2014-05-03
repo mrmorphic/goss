@@ -12,12 +12,13 @@ import (
 // database is actually a connection pool. The pool is automatically managed, and works across go-routines.
 var database *sql.DB
 
-// Execute a SQL query, returning the resulting rows.
+// Execute a SQL query, returning the resulting rows. Caller should ensure that rows.Close is called.
 func Query(sql string) (q *sql.Rows, e error) {
 	st, e := database.Prepare(sql)
 	if e != nil {
 		return
 	}
+	defer st.Close()
 
 	q, e = st.Query()
 	return
@@ -50,7 +51,11 @@ func (q *DataQuerySQL) Run() (interface{}, error) {
 		return nil, e
 	}
 
+	// ensure rows are closed. Implication is that this function must read all rows, can't
+	// leave the query open for incremental reading.
 	res, e := Query(sql)
+	defer res.Close()
+
 	if e != nil {
 		fmt.Printf("ERROR EXECUTING SQL: %s\n", e)
 		return nil, e
