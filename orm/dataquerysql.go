@@ -126,7 +126,7 @@ func (q *DataQuerySQL) sql() (s string, e error) {
 	if q.start >= 0 {
 		sql += " limit " + strconv.Itoa(q.start) + ", " + strconv.Itoa(q.limit)
 	}
-	fmt.Printf("query is %s\n", sql)
+	//	fmt.Printf("query is %s\n", sql)
 	return sql, nil
 }
 

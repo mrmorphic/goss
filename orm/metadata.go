@@ -61,7 +61,7 @@ func init() {
 // - we have not initialised yet
 // - the metadata file has a modification time that is more recent than when we last refreshed.
 func (dbm *DBMetadata) RefreshOnDemand(metadataSource string) error {
-	fmt.Printf("DBMetadata::RefreshOnDemand called with %s\n", metadataSource)
+	// fmt.Printf("DBMetadata::RefreshOnDemand called with %s\n", metadataSource)
 
 	// @todo check if file has changed since we last read it. Return if it hasn't.
 
@@ -77,9 +77,9 @@ func (dbm *DBMetadata) RefreshOnDemand(metadataSource string) error {
 		return err
 	}
 
-	for c, def := range dbm.Classes {
-		fmt.Printf("Class define for class %s is %s\n", c, def)
-	}
+	// for c, def := range dbm.Classes {
+	// 	fmt.Printf("Class define for class %s is %s\n", c, def)
+	// }
 
 	dbm.precache()
 
@@ -95,7 +95,7 @@ func (dbm *DBMetadata) precache() {
 	for _, c := range dbm.Classes {
 		dbm.ClassMap[c.ClassName] = c
 	}
-	fmt.Printf("before precache, class map is %s\n", dbm.ClassMap)
+	// fmt.Printf("before precache, class map is %s\n", dbm.ClassMap)
 	for _, c := range dbm.Classes {
 		c.precacheDefaultFromWhere(dbm)
 	}
@@ -109,9 +109,9 @@ func (ci *ClassInfo) precacheDefaultFromWhere(dbm *DBMetadata) {
 	lastTable := ""
 	rootTable := ""
 
-	fmt.Printf("precacheDefaultFromWhere: class info is %s\n", ci)
+	// fmt.Printf("precacheDefaultFromWhere: class info is %s\n", ci)
 
-	fmt.Printf("... processing ancestors\n")
+	// fmt.Printf("... processing ancestors\n")
 	// Join all ancestors leading up to this class, including the class itself, but only where a class has a table.
 	for _, c := range ci.Ancestors {
 		a := dbm.GetClass(c)
@@ -134,11 +134,11 @@ func (ci *ClassInfo) precacheDefaultFromWhere(dbm *DBMetadata) {
 	}
 
 	// Join all ancestors leading up to this class, including the class itself, but only where a class has a table.
-	fmt.Printf("... processing descendents\n")
+	// fmt.Printf("... processing descendents\n")
 	whereClause = "(\"" + rootTable + "\".\"ClassName\"='" + ci.ClassName + "'"
 	for _, c := range ci.Descendents {
 		d := dbm.GetClass(c)
-		fmt.Printf("...looking up descendent class %s\n", c)
+		// fmt.Printf("...looking up descendent class %s\n", c)
 		if d == nil {
 			fmt.Printf("class %s could not be found\n", c)
 		}
@@ -174,7 +174,7 @@ func (dbm *DBMetadata) IsVersioned(className string) bool {
 
 // Return a ClassInfo and all it's defined properties given a class name.
 func (dbm *DBMetadata) GetClass(className string) *ClassInfo {
-	fmt.Printf("GetClass: getting %s\n", className)
+	// fmt.Printf("GetClass: getting %s\n", className)
 	//	fmt.Printf("GetClass: map is %s\n", dbm.ClassMap)
 	return dbm.ClassMap[className]
 }

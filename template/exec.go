@@ -107,7 +107,7 @@ func (exec *executer) renderChunk(chunk *chunk) ([]byte, error) {
 }
 
 func (exec *executer) renderChunkBlock(ch *chunk) ([]byte, error) {
-	fmt.Printf("rendering block: %s\n", ch.printable(0))
+	// fmt.Printf("rendering block: %s\n", ch.printable(0))
 	result := []byte{}
 	for _, nested := range ch.m["chunks"].([]*chunk) {
 		b, e := exec.renderChunk(nested)
@@ -140,7 +140,6 @@ func (exec *executer) renderChunkVarFunc(ch *chunk) ([]byte, error) {
 	s := fmt.Sprintf("%s", v)
 	switch formatterName {
 	case "XML":
-		fmt.Printf("escaping as XML")
 		return []byte(html.EscapeString(s)), nil
 	case "RAW":
 		return []byte(s), nil
@@ -155,11 +154,9 @@ func (exec *executer) renderChunkVarFunc(ch *chunk) ([]byte, error) {
 // follow the chain on expr. If the last item in the chain is known to be a formatter, remove that
 // chunk and return
 func (exec *executer) extractFormatter(expr *chunk) string {
-	fmt.Printf("extractFormatter called with %s\n", expr)
 	first := expr
 	next := expr.m["chained"].(*chunk)
 	if next == nil {
-		fmt.Printf("no chain")
 		return ""
 	}
 
@@ -177,11 +174,10 @@ func (exec *executer) extractFormatter(expr *chunk) string {
 	// if next is a formatting function name, we've found a formatter. Otherwise
 	// there isn't one.
 	if next.kind != CHUNK_EXPR_VARFUNC {
-		fmt.Printf("%s not a var func", next)
 		return ""
 	}
+
 	name := next.m["name"].(string)
-	fmt.Printf("formatter name is %s\n", name)
 	if name == "XML" || name == "RAW" || name == "ATT" || name == "JS" || name == "SQL" {
 		first.m["chained"] = (*chunk)(nil)
 		return name
@@ -198,7 +194,7 @@ func (exec *executer) renderChunkIf(ch *chunk) ([]byte, error) {
 	if e != nil {
 		return nil, e
 	}
-	fmt.Printf("cond: %s\n", cond)
+
 	b, e := exec.boolOf(cond)
 	if e != nil {
 		return nil, newTemplateError(fmt.Sprintf("If condition must be boolean '%s' (value %s)", condition.printable(0), cond), ch)
@@ -222,7 +218,7 @@ func (exec *executer) boolOf(value interface{}) (bool, error) {
 	if value == nil {
 		return false, nil
 	}
-	fmt.Printf("boolOf %s\n", value)
+	// fmt.Printf("boolOf %s\n", value)
 
 	switch v := value.(type) {
 	case bool, *bool:
@@ -317,7 +313,7 @@ func (exec *executer) renderChunkLoop(ch *chunk) ([]byte, error) {
 	// if ctx implements DataList, get the items.
 	if dl, ok := ctxIntf.(orm.DataList); ok {
 		ctxIntf, e = dl.Items()
-		fmt.Printf("loop body seeing %d items: %s\n", len(ctxIntf.([]orm.DataObject)), ctxIntf)
+		//		fmt.Printf("loop body seeing %d items: %s\n", len(ctxIntf.([]interface{} /*orm.DataObject*/)), ctxIntf)
 	}
 
 	result := []byte{}
@@ -438,7 +434,7 @@ func (exec *executer) eval(expr *chunk) (interface{}, error) {
 
 func (exec *executer) evalVarFunc(expr *chunk) (interface{}, error) {
 	name := expr.m["name"].(string)
-	fmt.Printf("... evaluating var/function %s\n", name)
+	// fmt.Printf("... evaluating var/function %s\n", name)
 	chained := expr.m["chained"].(*chunk)
 
 	params := expr.m["params"].(*chunk) // block of further chunks
@@ -464,7 +460,7 @@ func (exec *executer) evalVarFunc(expr *chunk) (interface{}, error) {
 		value = exec.evaluate(exec.context(), name, paramList...)
 	}
 
-	fmt.Printf("... locator said: %s\n", value)
+	// fmt.Printf("... locator said: %s\n", value)
 	if chained == nil {
 		return value, nil
 	} else {

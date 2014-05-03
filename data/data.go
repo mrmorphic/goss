@@ -1,7 +1,7 @@
 package data
 
 import (
-	"fmt"
+	// "fmt"
 	"github.com/mrmorphic/goss"
 	"github.com/mrmorphic/goss/convert"
 	"reflect"
@@ -28,7 +28,7 @@ func NewDefaultLocater(context interface{}) goss.Evaluater {
 }
 
 func (d *DefaultLocater) Get(name string, args ...interface{}) interface{} {
-	fmt.Printf("Locate %s (%s) in %s\n", name, args, d.context)
+	// fmt.Printf("\nLocate %s (%s) in %s\n", name, args, d.context)
 
 	// Get the Value of context, and dereference if the type is a pointer
 	ctx := reflect.ValueOf(d.context)
@@ -62,7 +62,7 @@ func (d *DefaultLocater) Get(name string, args ...interface{}) interface{} {
 		// see if there is a _fallback
 		if name != "Fallback" {
 			fallback := d.Get("Fallback")
-			fmt.Printf("fallback is %s\n", fallback)
+			// fmt.Printf("fallback is %s\n", fallback)
 			if fallback != nil {
 				return Eval(fallback, name, args...)
 			}
@@ -112,6 +112,7 @@ func getConvertedParams(method reflect.Value, args []interface{}) []reflect.Valu
 }
 
 func convertToType(x interface{}, t reflect.Type) interface{} {
+	// fmt.Printf("\nconvertTo: %s to %s\n", x, t.Name())
 	argType := reflect.TypeOf(x)
 	if argType.AssignableTo(t) {
 		// if assignable, it's OK

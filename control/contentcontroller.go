@@ -176,14 +176,14 @@ func renderWithMatchedController(w http.ResponseWriter, r *http.Request, page or
 
 	// if the controller is a ContentController then set the object.
 	if cc, ok := c.(ContentController); ok {
-		fmt.Printf("renderWithMatchedController: setting controller object to %s\n", page)
+		// fmt.Printf("renderWithMatchedController: setting controller object to %s\n", page)
 		cc.SetObject(page)
 		cc.SetContext(c)
 	} else {
-		fmt.Printf("renderWithMatchedController: not a *ContentController: %s", c)
+		// fmt.Printf("renderWithMatchedController: not a *ContentController: %s", c)
 	}
 
-	fmt.Printf("after init c is %s\n", c)
+	//	fmt.Printf("after init c is %s\n", c)
 	c.ServeHTTP(w, r)
 }
 
