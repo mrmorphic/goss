@@ -3,9 +3,11 @@ package control
 import (
 	"errors"
 	"fmt"
+	"github.com/mrmorphic/goss/cache"
 	"github.com/mrmorphic/goss/data"
 	"github.com/mrmorphic/goss/orm"
 	"net/http"
+	"time"
 	// "strconv"
 )
 
@@ -58,6 +60,11 @@ func (ctl *BaseController) LinkOrSection() string {
 
 // Return the SiteConfig DataObject.
 func (ctl *BaseController) SiteConfig() (obj interface{}, e error) {
+	v := cache.Get("SiteConfig")
+	if v != nil {
+		return v, nil
+	}
+
 	q := orm.NewQuery("SiteConfig").Limit(0, 1)
 	res, e := q.Run()
 	if e != nil {
@@ -68,6 +75,8 @@ func (ctl *BaseController) SiteConfig() (obj interface{}, e error) {
 	if len(items) < 1 {
 		return nil, errors.New("There is no SiteConfig record")
 	}
+
+	cache.Store("SiteConfig", items[0], 60*time.Second)
 
 	return items[0], nil
 }
