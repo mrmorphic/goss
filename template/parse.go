@@ -46,7 +46,7 @@ func (p *parser) parseSource(source string, mainTemplate bool, filename string) 
 		return nil, newTemplateError(fmt.Sprintf("Expected end of template, but got '%s'", t.printable()), p.scanner)
 	}
 
-	fmt.Printf("Parsed result: \n%s\n", chunk.printable(0))
+	// fmt.Printf("Parsed result: \n%s\n", chunk.printable(0))
 
 	return result, nil
 }
@@ -245,7 +245,7 @@ func (p *parser) parseInclude() (*chunk, error) {
 
 	// parse the included file
 	path := configuration.includesPath + tk.value
-	fmt.Printf("requesting include file %s\n", path)
+	// fmt.Printf("requesting include file %s\n", path)
 	compiled, e := compileTemplate(path, false)
 
 	if e != nil {
