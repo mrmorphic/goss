@@ -36,7 +36,7 @@ type ContentControllerStruct struct {
 func (c *ContentControllerStruct) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	className := data.Eval(c.GetObject(), "ClassName").(string)
 	templates := []string{"Page", className}
-	e := template.RenderWith(w, templates, c.context, nil)
+	e := template.RenderWith(w, templates, c.context, nil, r)
 
 	if e != nil {
 		ErrorHandler(w, e)

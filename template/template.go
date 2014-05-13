@@ -71,7 +71,7 @@ var compiledTemplates map[string]*compiledTemplate
 // writer. 'templates' is an array of SilverStripe templates minus the ".ss" extension. If there is one template,
 // it is assumed to be in the base templates folder. If two are present, the first is the base template, the
 // second is the $Layout template.
-func RenderWith(w http.ResponseWriter, templates []string, context interface{}, require goss.RequirementsProvider) error {
+func RenderWith(w http.ResponseWriter, templates []string, context interface{}, require goss.RequirementsProvider, request *http.Request) error {
 	if require == nil {
 		require = requirements.NewRequirements()
 	}
@@ -94,7 +94,7 @@ func RenderWith(w http.ResponseWriter, templates []string, context interface{}, 
 	}
 
 	// execute the template using the data locator
-	r, e := executeTemplate(compiled, context, require)
+	r, e := executeTemplate(compiled, context, require, request)
 	if e != nil {
 		return e
 	}
@@ -104,8 +104,8 @@ func RenderWith(w http.ResponseWriter, templates []string, context interface{}, 
 	return e
 }
 
-func executeTemplate(templates []*compiledTemplate, context interface{}, require goss.RequirementsProvider) ([]byte, error) {
-	exec := newExecuter(templates, context, require)
+func executeTemplate(templates []*compiledTemplate, context interface{}, require goss.RequirementsProvider, request *http.Request) ([]byte, error) {
+	exec := newExecuter(templates, context, require, request)
 	return exec.render()
 }
 

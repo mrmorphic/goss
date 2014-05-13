@@ -6,7 +6,9 @@ import (
 	"github.com/mrmorphic/goss"
 	"github.com/mrmorphic/goss/data"
 	"github.com/mrmorphic/goss/orm"
+	"github.com/mrmorphic/goss/url"
 	"html"
+	"net/http"
 	"reflect"
 	"strconv"
 )
@@ -24,10 +26,12 @@ type executer struct {
 
 	// interface for handling requirements processing
 	require goss.RequirementsProvider
+
+	request *http.Request
 }
 
-func newExecuter(templates []*compiledTemplate, context interface{}, require goss.RequirementsProvider) *executer {
-	exec := &executer{contextStack: make([]interface{}, 0), templates: templates, require: require}
+func newExecuter(templates []*compiledTemplate, context interface{}, require goss.RequirementsProvider, request *http.Request) *executer {
+	exec := &executer{contextStack: make([]interface{}, 0), templates: templates, require: require, request: request}
 	exec.push(context)
 	return exec
 }
@@ -129,6 +133,13 @@ func (exec *executer) renderChunkVarFunc(ch *chunk) ([]byte, error) {
 		formatterName = "XML"
 	}
 
+	b, e, special := exec.evalSpecial(ch)
+	if e != nil {
+		return nil, e
+	} else if special {
+		return b, e
+	}
+
 	v, e := exec.eval(ch)
 	if e != nil {
 		return nil, e
@@ -149,6 +160,34 @@ func (exec *executer) renderChunkVarFunc(ch *chunk) ([]byte, error) {
 		// should not execute with a default of XML
 		return []byte(s), nil
 	}
+}
+
+// Given a chunk, determine if it is one of a number of special case functions that are commonly
+// invoked in a template but which don't fit the go execution model.
+func (exec *executer) evalSpecial(ch *chunk) ([]byte, error, bool) {
+	if ch.kind != CHUNK_EXPR_VARFUNC {
+		return nil, nil, false
+	}
+	name := ch.m["name"].(string)
+	params := ch.m["params"].(*chunk)
+	chained := ch.m["chained"].(*chunk)
+	if chained != nil || params != nil {
+		// exclude non-niladic functions and expressions where they are chained.
+		return nil, nil, false
+	}
+
+	context := exec.context()
+
+	switch name {
+	case "LinkingMode":
+		return []byte(url.LinkingMode(exec.request, context)), nil, true
+	case "LinkOrCurrent":
+		return []byte(url.LinkOrCurrent(exec.request, context)), nil, true
+	case "LinkOrSection":
+		return []byte(url.LinkOrSection(exec.request, context)), nil, true
+	}
+
+	return nil, nil, false
 }
 
 // follow the chain on expr. If the last item in the chain is known to be a formatter, remove that
@@ -460,7 +499,7 @@ func (exec *executer) evalVarFunc(expr *chunk) (interface{}, error) {
 		value = exec.evaluate(exec.context(), name, paramList...)
 	}
 
-	// fmt.Printf("... locator said: %s\n", value)
+	fmt.Printf("... locator said: %s\n", value)
 	if chained == nil {
 		return value, nil
 	} else {

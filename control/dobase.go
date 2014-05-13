@@ -24,7 +24,7 @@ func (d *DataObjectBase) GetMenuTitle() string {
 	return d.MenuTitle
 }
 
-// Generate
+// Generate a BaseHRef-relative link to this page
 func (d *DataObjectBase) Link(args ...string) string {
 	hier := orm.IsHierarchical(d.ClassName)
 	if !hier {
@@ -49,6 +49,10 @@ func (d *DataObjectBase) Link(args ...string) string {
 
 	for _, a := range args {
 		res += "/" + a
+	}
+
+	if res == "home" {
+		res = "/"
 	}
 
 	return res
