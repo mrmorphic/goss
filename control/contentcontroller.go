@@ -61,6 +61,15 @@ func (c *ContentControllerStruct) GetObject() interface{} {
 // @todo Understand BaseController actions, or break on the furthest it gets up the tree
 // @todo cache site tree
 func findPageToRender(r *http.Request) (int, error) {
+	siteCache := getSiteCache()
+	if siteCache != nil {
+		id, found := siteCache.findPageToRender(r)
+		if found {
+			fmt.Printf("page cache hit %d\n", id)
+			return id, nil
+		}
+	}
+
 	s := strings.Trim(r.URL.Path, "/")
 	path := strings.Split(s, "/")
 
@@ -139,27 +148,37 @@ func SiteTreeHandler(w http.ResponseWriter, r *http.Request) {
 
 	//	fmt.Printf("SiteTreeHandler has found a page: %d\n", pageID)
 
-	q := orm.NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ID\"=" + strconv.Itoa(pageID))
-	v, _ := q.Run()
+	siteCache := getSiteCache()
+	page := siteCache.GetCacheByID(pageID)
 
-	if e != nil {
-		ErrorHandler(w, e)
-		return
+	if page == nil {
+
+		q := orm.NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ID\"=" + strconv.Itoa(pageID))
+		v, _ := q.Run()
+
+		if e != nil {
+			ErrorHandler(w, e)
+			return
+		}
+
+		res := v.(orm.DataList)
+		items, e := res.Items()
+		if e != nil {
+			ErrorHandler(w, e)
+		}
+
+		if len(items) == 0 {
+			e = errors.New("Could not locate object with ID " + strconv.Itoa(pageID))
+			ErrorHandler(w, e)
+			return
+		}
+
+		page = items[0]
+
+		siteCache.CacheDataObject(pageID, page)
+	} else {
+		fmt.Printf("cache hit for tree item!\n")
 	}
-
-	res := v.(orm.DataList)
-	items, e := res.Items()
-	if e != nil {
-		ErrorHandler(w, e)
-	}
-
-	if len(items) == 0 {
-		e = errors.New("Could not locate object with ID " + strconv.Itoa(pageID))
-		ErrorHandler(w, e)
-		return
-	}
-
-	page := items[0]
 
 	renderWithMatchedController(w, r, page)
 }
@@ -167,6 +186,7 @@ func SiteTreeHandler(w http.ResponseWriter, r *http.Request) {
 // Given a page, find a controller that says it can handle it, and render the page with that.
 func renderWithMatchedController(w http.ResponseWriter, r *http.Request, page interface{}) {
 	// locate a controller
+	fmt.Printf("\npage is %s\n", page)
 	className := data.Eval(page, "ClassName").(string)
 	c, e := getControllerInstance(className)
 
