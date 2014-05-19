@@ -7,8 +7,8 @@ import (
 	// "github.com/mrmorphic/goss/data"
 	"github.com/mrmorphic/goss/orm"
 	"net/http"
+	"strconv"
 	"time"
-	// "strconv"
 )
 
 // Base type for BaseController. Goss doesn't directly create this; it is a base for the application
@@ -22,12 +22,20 @@ func (ctl *BaseController) Init(r *http.Request) {
 }
 
 func (ctl *BaseController) Menu(level int) (orm.DataList, error) {
+	key := "goss_Menu_" + strconv.Itoa(level)
+	result := cache.Get(key)
+	if result != nil {
+		return result.(orm.DataList), nil
+	}
+
 	if level == 1 {
 		q := orm.NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ParentID\"=0").Where("\"ShowInMenus\"=1").Sort("\"Sort\" ASC")
 		v, e := q.Run()
 		if e != nil {
 			return nil, e
 		}
+
+		cache.Store(key, v, time.Minute)
 
 		return v.(orm.DataList), nil
 	}
