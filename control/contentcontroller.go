@@ -65,7 +65,7 @@ func findPageToRender(r *http.Request) (int, error) {
 	if siteCache != nil {
 		id, found := siteCache.findPageToRender(r)
 		if found {
-			fmt.Printf("page cache hit %d\n", id)
+			// fmt.Printf("page cache hit %d\n", id)
 			return id, nil
 		}
 	}
@@ -152,7 +152,6 @@ func SiteTreeHandler(w http.ResponseWriter, r *http.Request) {
 	page := siteCache.GetCacheByID(pageID)
 
 	if page == nil {
-
 		q := orm.NewQuery("SiteTree").Where("\"SiteTree_Live\".\"ID\"=" + strconv.Itoa(pageID))
 		v, _ := q.Run()
 
@@ -176,8 +175,6 @@ func SiteTreeHandler(w http.ResponseWriter, r *http.Request) {
 		page = items[0]
 
 		siteCache.CacheDataObject(pageID, page)
-	} else {
-		fmt.Printf("cache hit for tree item!\n")
 	}
 
 	renderWithMatchedController(w, r, page)
@@ -185,8 +182,7 @@ func SiteTreeHandler(w http.ResponseWriter, r *http.Request) {
 
 // Given a page, find a controller that says it can handle it, and render the page with that.
 func renderWithMatchedController(w http.ResponseWriter, r *http.Request, page interface{}) {
-	// locate a controller
-	fmt.Printf("\npage is %s\n", page)
+	// locate a controller%s\n", page)
 	className := data.Eval(page, "ClassName").(string)
 	c, e := getControllerInstance(className)
 

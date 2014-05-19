@@ -3,7 +3,7 @@
 package url
 
 import (
-	"fmt"
+	// "fmt"
 	"github.com/mrmorphic/goss/data"
 	"net/http"
 )
@@ -20,7 +20,7 @@ func LinkingMode(r *http.Request, obj interface{}) string {
 	// otherwise link
 	requestRel := r.URL.Path
 	pageRel := data.Eval(obj, "Link").(string)
-	fmt.Printf("Linking mode: requestRel: '%s', pageRel: '%s'\n", requestRel, pageRel)
+	// fmt.Printf("Linking mode: requestRel: '%s', pageRel: '%s'\n", requestRel, pageRel)
 	if requestRel == pageRel {
 		return "current"
 	} else if len(requestRel) < len(pageRel) && requestRel == pageRel[0:len(requestRel)] {

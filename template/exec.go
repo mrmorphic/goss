@@ -499,7 +499,7 @@ func (exec *executer) evalVarFunc(expr *chunk) (interface{}, error) {
 		value = exec.evaluate(exec.context(), name, paramList...)
 	}
 
-	fmt.Printf("... locator said: %s\n", value)
+	// fmt.Printf("... locator said: %s\n", value)
 	if chained == nil {
 		return value, nil
 	} else {
