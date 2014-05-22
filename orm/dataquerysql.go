@@ -15,6 +15,7 @@ var database *sql.DB
 
 // Execute a SQL query, returning the resulting rows. Caller should ensure that rows.Close is called.
 func Query(sql string) (q *sql.Rows, e error) {
+	fmt.Printf("sql: %s\n", sql)
 	st, e := database.Prepare(sql)
 	if e != nil {
 		return
@@ -23,6 +24,11 @@ func Query(sql string) (q *sql.Rows, e error) {
 
 	q, e = st.Query()
 	return
+}
+
+// Execute a SQL statement.
+func Exec(sql string) (sql.Result, error) {
+	return database.Exec(sql)
 }
 
 // DataQuerySQL is an implementer of DataQuery for SQL databases.
