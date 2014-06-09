@@ -174,6 +174,13 @@ ConfigProvider assumes that the configuration data is organised in a name space.
  *	goss.metadata: a path to the metadata JSON file that contains metadata
  	for the ORM. This is typically automatically generated using the
  	github.com/mrmorphic/silverstripe-goss module.
+ *	goss.cache.menuTTL: time-to-live in seconds of menu(n) cache. 0 means
+	not cached.
+ *	goss.cache.siteConfigTTL: time-to-live in seconds of site config cache.
+ 	0 means not cached.
+ *	goss.cache.siteTreeTTL: time-to-live in seconds of site tree cache,
+ 	which is cache of some SiteTree properties, used for URL segment lookups.
+ 	0 means not cached.
 
 ## Objects and Interfaces
 

@@ -3,6 +3,7 @@ package control
 import (
 	"database/sql"
 	"fmt"
+	"github.com/mrmorphic/goss/cache"
 	"github.com/mrmorphic/goss/data"
 	"github.com/mrmorphic/goss/orm"
 	"net/http"
@@ -33,19 +34,17 @@ type SiteCache struct {
 	objByID map[int]interface{}
 }
 
-var currentSiteCache *SiteCache
-
 // primeSiteCache is responsible for re-computing the data structures in the cache. It does this
 // by requerying the database, rebuilding the structure, and finally replacing the data structures
 // atomically. In this way, a request being processed will either get the old version or the new
 // version, but whichever version it's using won't be replaced mid-request.
-func primeSiteCache() error {
+func primeSiteCache() (*SiteCache, error) {
 	r, e := orm.Query(`select "ID","ClassName","ParentID","Title","MenuTitle","URLSegment" from "SiteTree_Live"`)
 	defer r.Close()
 
 	if e != nil {
 		fmt.Printf("ERROR EXECUTING SQL: %s\n", e)
-		return e
+		return nil, e
 	}
 
 	newCache := newSiteCache()
@@ -53,7 +52,7 @@ func primeSiteCache() error {
 	for r.Next() {
 		e := newCache.ReadRow(r)
 		if e != nil {
-			return e
+			return nil, e
 		}
 	}
 
@@ -61,10 +60,7 @@ func primeSiteCache() error {
 
 	fmt.Printf("primeSiteCache: %s\n", newCache)
 
-	// finally, replace the existing cache. we expect this to be an atomic assignment of a pointer.
-	currentSiteCache = newCache
-
-	return nil
+	return newCache, nil
 }
 
 func newSiteCache() *SiteCache {
@@ -72,11 +68,19 @@ func newSiteCache() *SiteCache {
 }
 
 func getSiteCache() *SiteCache {
-	if currentSiteCache == nil {
-		primeSiteCache()
+	key := "goss.Sitetree"
+	result := cache.Get(key)
+	if result != nil {
+		return result.(*SiteCache)
 	}
 
-	return currentSiteCache
+	c, _ := primeSiteCache()
+
+	if configuration.cacheSiteTreeNavTTL > 0 {
+		cache.Store(key, c, time.Duration(configuration.cacheSiteTreeNavTTL)*time.Second)
+	}
+
+	return c
 }
 
 // After computing the cache, if content controller subsequently loads a page for rendering against,

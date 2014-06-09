@@ -22,7 +22,7 @@ func (ctl *BaseController) Init(r *http.Request) {
 }
 
 func (ctl *BaseController) Menu(level int) (orm.DataList, error) {
-	key := "goss_Menu_" + strconv.Itoa(level)
+	key := "goss.Menu." + strconv.Itoa(level)
 	result := cache.Get(key)
 	if result != nil {
 		return result.(orm.DataList), nil
@@ -35,7 +35,9 @@ func (ctl *BaseController) Menu(level int) (orm.DataList, error) {
 			return nil, e
 		}
 
-		cache.Store(key, v, time.Minute)
+		if configuration.cacheMenuTTL > 0 {
+			cache.Store(key, v, time.Duration(configuration.cacheMenuTTL)*time.Second)
+		}
 
 		return v.(orm.DataList), nil
 	}
@@ -50,7 +52,7 @@ func (ctl *BaseController) Level(level int) orm.DataObject {
 
 // Return the SiteConfig DataObject.
 func (ctl *BaseController) SiteConfig() (obj interface{}, e error) {
-	v := cache.Get("SiteConfig")
+	v := cache.Get("goss.SiteConfig")
 	if v != nil {
 		return v, nil
 	}
@@ -66,7 +68,9 @@ func (ctl *BaseController) SiteConfig() (obj interface{}, e error) {
 		return nil, errors.New("There is no SiteConfig record")
 	}
 
-	cache.Store("SiteConfig", items[0], 60*time.Second)
+	if configuration.cacheSiteConfigTTL > 0 {
+		cache.Store("goss.SiteConfig", items[0], time.Duration(configuration.cacheSiteConfigTTL)*time.Second)
+	}
 
 	return items[0], nil
 }

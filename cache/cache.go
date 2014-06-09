@@ -8,7 +8,9 @@ package cache
 
 // Ideas to try here include:
 //  * add to cache with a function that can be called in a goroutine to refresh the value on
-//    expiry. set-and-forget. Duration still specified.
+//    expiry. set-and-forget. Duration still specified. This is actually important for permanently cycled
+//	  caches like SiteTree, so that we can replace the value before invaliding the new one; otherwise multiple
+//    requests will race to re-populate it, causing an unnecessary load spike.
 //  * add to cache with a policy expiry function. The cache will poll the policy expiry functions.
 
 import (
