@@ -1,26 +1,16 @@
 package orm
 
 import (
-	"github.com/mrmorphic/goss"
-	"errors"
 	"database/sql"
+	"errors"
 	"fmt"
+	"github.com/mrmorphic/goss"
 )
 
 func init() {
-	fns := []func(goss.ConfigProvider)error{setupDB, setupMetadata}
+	fns := []func(goss.ConfigProvider) error{setupDB, setupMetadata}
 	goss.RegisterInit(fns)
 }
-//func Configure(config ConfigProvider) error {
-//	setupFunctions := []func(config ConfigProvider) error{setupDB, setupMetadata}
-//	for _, fn := range setupFunctions {
-//		e := fn(conf)
-//		if e != nil {
-//			return e
-//		}
-//	}
-//
-//}
 
 // setupDB creates the database connection pool. This is shared across go-routines for all requests,
 // and the pool management is managed automatically by the sql package.
